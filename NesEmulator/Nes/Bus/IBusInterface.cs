@@ -8,10 +8,6 @@ namespace TestPGE.Nes.Bus
 {
     public interface IBusInterface
     {
-        uint StartAddress { get; }
-
-        uint EndAddress { get; }
-
         byte ReadByte(uint address);
 
         void WriteByte(uint address, byte data);

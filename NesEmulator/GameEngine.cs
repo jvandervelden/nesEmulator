@@ -132,7 +132,7 @@ namespace TestPGE
             while (run && updatePass)
             {
                 long currentTime = DateTime.Now.Ticks;
-                double elapsedTime = (currentTime - lastFireTime) / TICKS_PER_SECOND;
+                double elapsedTime = (currentTime - lastFireTime) / (double)TICKS_PER_SECOND;
 
                 fps = 1d / elapsedTime;
 

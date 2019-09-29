@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using TestPGE.Nes.Memory;
 using TestPGE.Nes.Bus;
+using System.Threading;
 
 namespace TestPGE.Nes
 {
@@ -16,18 +17,23 @@ namespace TestPGE.Nes
         public static readonly double CPU_CLOCK_FREQ = MASTER_CLOCK_FREQ / 16d;
         public static readonly double MS_BETWEN_CYCLES = CPU_CLOCK_FREQ / TICKS_PER_MILLISECOND;
         public static UInt16 NES_RAM_SIZE = 0x0800; // 2kb of Ram
-        public static UInt16 NES_ADDRESSABLE_RANGE = 0xFFFF; // 16 bit address bus.
+        public static UInt16 CPU_ADDRESSABLE_RANGE = 0xFFFF; // 16 bit cpu address bus.
+        public static UInt16 PPU_ADDRESSABLE_RANGE = 0x3FFF; // 14 bit ppu address bus.
 
         public Core(int width, int height, int px, int py) : base(width, height, px, py) { }
 
         private Ram _ram;
-        private Rom _rom;
         private List<MirroredRam> mirroredRam = new List<MirroredRam>();
         private I6502 _cpu;
-        private DataBus _bus;
+        private I2A03 _ppu;
+        private DataBus _cpuBus;
+        private DataBus _ppuBus;
+
+        private Cartridge _cartridge;
 
         protected override bool OnUserCreate()
         {
+            // SETUP THE RAM
             _ram = new Ram(NES_RAM_SIZE, 0x0000);
 
             mirroredRam.Add(new MirroredRam(_ram, (uint)NES_RAM_SIZE * 1));
@@ -35,49 +41,65 @@ namespace TestPGE.Nes
             mirroredRam.Add(new MirroredRam(_ram, (uint)NES_RAM_SIZE * 3));
 
             // Simple bubble sort program from 
-            string program = "A0 00 8C 32 00 B1 30 AA C8 CA B1 30 C8 D1 30 90 11 F0 0F 48 B1 30 88 91 30 68 C8 91 30 A9 FF 8D 32 00 CA D0 E5 2C 32 00 30 D6 60";
-            string[] programHexCodes = program.Split(' ');
+            // string program = "A0 00 8C 32 00 B1 30 AA C8 CA B1 30 C8 D1 30 90 11 F0 0F 48 B1 30 88 91 30 68 C8 91 30 A9 FF 8D 32 00 CA D0 E5 2C 32 00 30 D6 60";
+            // string[] programHexCodes = program.Split(' ');
 
             // Extend by 6 bytes for the irq, nmi, reset addresses.
-            byte[] programBytes = new byte[programHexCodes.Length + 6];
+            // byte[] programBytes = new byte[programHexCodes.Length + 6];
 
-            for (int i = 0; i < programHexCodes.Length; i++)
-                programBytes[i] = byte.Parse(programHexCodes[i], System.Globalization.NumberStyles.HexNumber);
+            //for (int i = 0; i < programHexCodes.Length; i++)
+            //    programBytes[i] = byte.Parse(programHexCodes[i], System.Globalization.NumberStyles.HexNumber);
 
-            UInt16 startAddress = (UInt16)(0xFFFF - programBytes.Length + 1);
+            //UInt16 startAddress = (UInt16)(0xFFFF - programBytes.Length + 1);
 
-            programBytes[programBytes.Length - 3] = (byte)(startAddress >> 8);
-            programBytes[programBytes.Length - 4] = (byte)startAddress;
-
-            _rom = new Rom(programBytes, NES_ADDRESSABLE_RANGE);
-
+            //programBytes[programBytes.Length - 3] = (byte)(startAddress >> 8);
+            //programBytes[programBytes.Length - 4] = (byte)startAddress;
+            
             // Setup bytes to sort.
-            _ram.WriteByte(0x0030, 0x40);
-            _ram.WriteByte(0x0031, 0x00);
-            _ram.WriteByte(0x0040, 0x05);
-            _ram.WriteByte(0x0041, 0x45);
-            _ram.WriteByte(0x0042, 0x29);
-            _ram.WriteByte(0x0043, 0x35);
-            _ram.WriteByte(0x0044, 0x75);
-            _ram.WriteByte(0x0045, 0x30);
+            //_ram.WriteByte(0x0030, 0x40);
+            //_ram.WriteByte(0x0031, 0x00);
+            //_ram.WriteByte(0x0040, 0x05);
+            //_ram.WriteByte(0x0041, 0x45);
+            //_ram.WriteByte(0x0042, 0x29);
+            //_ram.WriteByte(0x0043, 0x35);
+            //_ram.WriteByte(0x0044, 0x75);
+            //_ram.WriteByte(0x0045, 0x30);
 
-            _bus = new DataBus(NES_ADDRESSABLE_RANGE);
+            // SETUP THE BUSSES
+            _cpuBus = new DataBus(CPU_ADDRESSABLE_RANGE);
+            _ppuBus = new DataBus(PPU_ADDRESSABLE_RANGE);
 
-            _bus.ConnectDevice(_ram);
-            foreach (MirroredRam mr in mirroredRam) _bus.ConnectDevice(mr);
-            _bus.ConnectDevice(_rom);
+            _cpuBus.ConnectDevice(_ram, _ram.StartAddress, _ram.EndAddress);
+            foreach (MirroredRam mr in mirroredRam)
+                _cpuBus.ConnectDevice(mr, mr.StartAddress, mr.EndAddress);
 
+            // SETUP THE CPU
             _cpu = new Cpu()
             {
-                Bus = _bus
+                Bus = _cpuBus
             };
 
+            // SETUP THE PPU
+            _ppu = new Ppu();
+
+            _cpuBus.ConnectDevice(_ppu, 0x2000, 0x3FFF);
+
+            // SETUP THE CARTRIDGE
+            _cartridge = new Cartridge();
+            _cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
+            _cartridge.Insert(_cpuBus, _ppuBus);
+
+            // RESET TO INITIAL STATE
             _cpu.Reset();
+
+            Thread printThread = new Thread(this.tStart);
+
+            printThread.Start();
 
             return true;
         }
 
-        long currentCycleTimeMs = 0;
+        long currentCycleTimeMs = 10;
 
         protected override bool OnUserUpdate(double elapsedTime)
         {
@@ -86,19 +108,24 @@ namespace TestPGE.Nes
             currentCycleTimeMs += (int)Math.Round(elapsedTime * TICKS_PER_MILLISECOND);
             
             // Slow down to cpu cycles to what the NES clock is.
-            if (currentCycleTimeMs > MS_BETWEN_CYCLES)
-            {
-                long currentTimeStamp = DateTime.Now.Ticks;
-
+        //    if (currentCycleTimeMs > MS_BETWEN_CYCLES)
+        //    {
                 print = _cpu.RemainingInstructionCycles == 0 || print;
 
                 _cpu.clock();
+                _ppu.Clock();
                 currentCycleTimeMs -= (int)MS_BETWEN_CYCLES;
 
-                if (print) PrintState();
-            }
+                //if (print) PrintState();
+        //    }
             
             return true;
+        }
+
+        private void tStart(object data)
+        {
+            while(true)
+                PrintState();
         }
 
         private void PrintState()
@@ -125,12 +152,49 @@ namespace TestPGE.Nes
             dumpLines[8] += String.Format("  PC:      ${0:X4}", _cpu.ProgramCounter);
 
             dumpLines[10] += String.Format("  Stack:", _cpu.ProgramCounter);
-            for (byte i = _cpu.StackPointer, x = 0; i <= Cpu.INITIAL_STACK_POINTER_ADDRESS; i++, x++)
-                dumpLines[11 + x] += string.Format("  $00{0:X2}: ${1:X2}", i, _ram.ReadByte(i));
+
+            List<string> disassembly = Disassemble(10);
+
+            int x = 0;
+
+            //for (byte i = _cpu.StackPointer; i <= Cpu.INITIAL_STACK_POINTER_ADDRESS; i++, x++)
+            //    dumpLines[11 + x] += string.Format("  $00{0:X2}: ${1:X2}", i, _ram.ReadByte(i));
+
+            for (int y = 0; y < 10; y++, x++)
+                dumpLines[12 + x] += $"  {disassembly[y]}";
 
             Console.WriteLine();
             Console.WriteLine(" Zeropage:");
             foreach (string dumpLine in dumpLines) Console.WriteLine(dumpLine);
+        }
+
+        private List<string> Disassemble(int length)
+        {
+            UInt16 tmpPC = (UInt16)(_cpu.ProgramCounter - 1);
+            List<string> disassembly = new List<string>();
+
+            for (int i = 0; i < length; i++)
+            {
+                byte opCode = _cpuBus.Read(tmpPC++);
+                Instruction instruction = InstructionSet.InstuctionsByOpcode[opCode];
+
+                disassembly.Add(instruction.Name);
+
+                if (instruction.AddressMode == AddressModes.ABS) tmpPC += 2;
+                if (instruction.AddressMode == AddressModes.ABX) tmpPC += 2;
+                if (instruction.AddressMode == AddressModes.ABY) tmpPC += 2;
+                if (instruction.AddressMode == AddressModes.IMM) tmpPC += 1;
+                if (instruction.AddressMode == AddressModes.IMP) tmpPC += 0;
+                if (instruction.AddressMode == AddressModes.IND) tmpPC += 2;
+                if (instruction.AddressMode == AddressModes.IZX) tmpPC += 1;
+                if (instruction.AddressMode == AddressModes.IZY) tmpPC += 1;
+                if (instruction.AddressMode == AddressModes.REL) tmpPC += 1;
+                if (instruction.AddressMode == AddressModes.ZP0) tmpPC += 1;
+                if (instruction.AddressMode == AddressModes.ZPX) tmpPC += 1;
+                if (instruction.AddressMode == AddressModes.ZPY) tmpPC += 1;
+            }
+
+            return disassembly;
         }
     }
 }

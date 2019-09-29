@@ -36,7 +36,7 @@ namespace TestPGE.Nes
             UpdateNegative(cpu, sum);
             cpu.SetFlag(Flags.V, ((cpu.A ^ (byte)sum) & ~(cpu.A ^ cpu.Fetched) & 0x0080) == 0x0080);
 
-            cpu.A = (byte)sum;
+            cpu.A = (byte)(sum & 0x00FF);
 
             return 1;
         }
@@ -59,7 +59,7 @@ namespace TestPGE.Nes
             UpdateNegative(cpu, shiftedValue);
 
             if (cpu.ImpliedAddress)
-                cpu.A = (byte)shiftedValue;
+                cpu.A = (byte)(shiftedValue & 0x00FF);
             else
                 cpu.Bus.Write(cpu.Address, (byte)shiftedValue);
 
@@ -342,22 +342,16 @@ namespace TestPGE.Nes
 
         public static byte JMP(I6502 cpu)
         {
-            UInt16 lo = cpu.Bus.Read((byte)(cpu.ProgramCounter + 0));
-            UInt16 hi = cpu.Bus.Read((byte)(cpu.ProgramCounter + 1));
-
-            cpu.ProgramCounter = (UInt16)((hi << 8) | lo);
+            cpu.ProgramCounter = cpu.Address;
 
             return 0;
         }
         public static byte JSR(I6502 cpu)
         {
-            UInt16 lo = cpu.Bus.Read((byte)(cpu.ProgramCounter + 0));
-            UInt16 hi = cpu.Bus.Read((byte)(cpu.ProgramCounter + 1));
+            cpu.Bus.Write(cpu.StackPointer--, (byte)((cpu.ProgramCounter - 1 >> 8) & 0x00FF));
+            cpu.Bus.Write(cpu.StackPointer--, (byte)(cpu.ProgramCounter - 1 & 0x00FF));
 
-            cpu.Bus.Write(cpu.StackPointer--, (byte)((cpu.ProgramCounter + 1 >> 8) & 0x00FF));
-            cpu.Bus.Write(cpu.StackPointer--, (byte)(cpu.ProgramCounter + 1 & 0x00FF));
-
-            cpu.ProgramCounter = (UInt16)((hi << 8) | lo);
+            cpu.ProgramCounter = cpu.Address;
 
             return 0;
         }
@@ -457,7 +451,7 @@ namespace TestPGE.Nes
             UpdateNegative(cpu, shifted);
 
             if (cpu.ImpliedAddress)
-                cpu.A = (byte)shifted;
+                cpu.A = (byte)(shifted & 0x00FF);
             else
                 cpu.Bus.Write(cpu.Address, (byte)shifted);
 
@@ -481,7 +475,7 @@ namespace TestPGE.Nes
             UpdateNegative(cpu, shifted);
 
             if (cpu.ImpliedAddress)
-                cpu.A = (byte)shifted;
+                cpu.A = (byte)(shifted & 0x00FF);
             else
                 cpu.Bus.Write(cpu.Address, (byte)shifted);
 
@@ -535,7 +529,7 @@ namespace TestPGE.Nes
             cpu.SetFlag(Flags.N, (difference & 0x0080) == 0x0080);
             cpu.SetFlag(Flags.V, ((cpu.A ^ difference) & (cpu.A ^ cpu.Fetched) & 0x0080) == 0x0080);
 
-            cpu.A = (byte)difference;
+            cpu.A = (byte)(difference & 0x00FF);
 
             return 1;
         }

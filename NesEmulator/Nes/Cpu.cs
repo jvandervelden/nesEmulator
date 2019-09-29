@@ -158,6 +158,10 @@ namespace TestPGE.Nes
                 {
                     Console.Error.WriteLine("Encountered un supported opcode: {0} - {1:X2}", instruction.Name, nextOpcode);
                 }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine($"Encountered error: ${e.Message}");
+                }
 
                 SetFlag(Flags.U, true);
             }
