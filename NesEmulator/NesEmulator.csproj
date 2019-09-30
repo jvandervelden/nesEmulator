@@ -76,16 +76,18 @@
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
     <Compile Include="GameEngine.cs" />
+    <Compile Include="Nes\Bus\PpuControlBus.cs" />
     <Compile Include="Nes\Cartridge.cs" />
     <Compile Include="Nes\Cpu.cs" />
     <Compile Include="Nes\AddressModes.cs" />
     <Compile Include="Nes\Bus\DataBus.cs" />
-    <Compile Include="Nes\I2A03.cs" />
+    <Compile Include="Nes\IPPU.cs" />
     <Compile Include="Nes\I6502.cs" />
     <Compile Include="Nes\Bus\IBusInterface.cs" />
     <Compile Include="Nes\INesHeader.cs" />
     <Compile Include="Nes\Instruction.cs" />
     <Compile Include="Nes\InstructionSet.cs" />
+    <Compile Include="Nes\Mapper\Mapper000.cs" />
     <Compile Include="Nes\Mapper\IMapper.cs" />
     <Compile Include="Nes\Mapper\Mapper001.cs" />
     <Compile Include="Nes\Memory\MirroredRam.cs" />

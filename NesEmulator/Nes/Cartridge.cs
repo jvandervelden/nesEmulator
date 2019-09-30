@@ -85,6 +85,8 @@ namespace TestPGE.Nes
         {
             switch(nesHeader.Mapper)
             {
+                case 0x00:
+                    return new Mapper000(nesHeader);
                 case 0x01:
                     return new Mapper001(nesHeader);
             }

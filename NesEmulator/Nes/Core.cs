@@ -25,9 +25,10 @@ namespace TestPGE.Nes
         private Ram _ram;
         private List<MirroredRam> mirroredRam = new List<MirroredRam>();
         private I6502 _cpu;
-        private I2A03 _ppu;
+        private IPPU _ppu;
         private DataBus _cpuBus;
         private DataBus _ppuBus;
+        private PpuControlBus _ppuControlBus;
 
         private Cartridge _cartridge;
 
@@ -74,19 +75,18 @@ namespace TestPGE.Nes
                 _cpuBus.ConnectDevice(mr, mr.StartAddress, mr.EndAddress);
 
             // SETUP THE CPU
-            _cpu = new Cpu()
-            {
-                Bus = _cpuBus
-            };
-
+            _cpu = new Cpu(_cpuBus);
+            
             // SETUP THE PPU
-            _ppu = new Ppu();
+            _ppu = new Ppu(_ppuBus);
+            _ppuControlBus = new PpuControlBus(_ppu);
 
-            _cpuBus.ConnectDevice(_ppu, 0x2000, 0x3FFF);
+            _cpuBus.ConnectDevice(_ppuControlBus, 0x2000, 0x3FFF);
 
             // SETUP THE CARTRIDGE
             _cartridge = new Cartridge();
-            _cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
+            //_cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
+            _cartridge.Load(@"D:\tmp\Super Mario Bros. (World).nes");
             _cartridge.Insert(_cpuBus, _ppuBus);
 
             // RESET TO INITIAL STATE
@@ -116,16 +116,33 @@ namespace TestPGE.Nes
                 _ppu.Clock();
                 currentCycleTimeMs -= (int)MS_BETWEN_CYCLES;
 
-                //if (print) PrintState();
-        //    }
-            
+            //if (print) PrintState();
+            //    }
+
             return true;
         }
 
         private void tStart(object data)
         {
-            while(true)
+            while (true)
+            {
                 PrintState();
+                PrintPatternTables();
+            }
+        }
+
+        private void PrintPatternTables()
+        {
+            for (byte p = 0; p <= 0x01; p++)
+            {
+                for (byte x = 0; x <= 0x0F; x++)
+                {
+                    for (byte y = 0; y <= 0x0F; y++)
+                    {
+                        Draw(x * 8, y * 8 + p * 128, _ppu.PrintPattern(p, (byte)((x << 4) + y)));
+                    }
+                }
+            }
         }
 
         private void PrintState()

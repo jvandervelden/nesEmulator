@@ -34,6 +34,11 @@ namespace TestPGE.Nes
 
         public DataBus Bus { get; set; }
 
+        public Cpu(DataBus bus)
+        {
+            Bus = bus;
+        }
+
         private static Dictionary<byte, Instruction> BuildLookup(params Instruction[] instructions)
         {
             Dictionary<byte, Instruction> mappedInstructions = new Dictionary<byte, Instruction>();

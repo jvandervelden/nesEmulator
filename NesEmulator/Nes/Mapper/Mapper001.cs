@@ -8,8 +8,8 @@ namespace TestPGE.Nes.Mapper
 {
     public class Mapper001 : IMapper
     {
-        public const byte SHIFT_REGISTER_RESET_STATE = 0B_00010000;
-        public const byte CONTROL_REGISTER_RESET_STATE = 0B_00001100;
+        public const byte SHIFT_REGISTER_RESET_STATE = 0x10;
+        public const byte CONTROL_REGISTER_RESET_STATE = 0x0C;
 
         private INesHeader _nesHeader;
         private byte ShiftRegister = SHIFT_REGISTER_RESET_STATE;

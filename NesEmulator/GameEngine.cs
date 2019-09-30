@@ -45,7 +45,7 @@ namespace TestPGE
         public GameEngine(int width, int height, int pw, int ph)
         {
             _width = width;
-            _height = height;            
+            _height = height;
             _pixelWidth = pw;
             _pixelHeight = ph;
         }
@@ -141,15 +141,20 @@ namespace TestPGE
                 lastFireTime = currentTime;
 
                 ClearPressedKeys();
-            } 
+            }
         }
 
         protected abstract bool OnUserCreate();
         protected abstract bool OnUserUpdate(double elapsedTime);
-        
+
         protected void Clear(Color bgColor)
         {
             _graphics.Clear(bgColor);
+        }
+
+        protected void Draw(int x, int y, Image image)
+        {
+            _graphics.DrawImage(image, x * _pixelWidth, y * _pixelHeight, image.Size.Width * _pixelWidth, image.Size.Height * _pixelHeight);
         }
 
         protected void Draw(int x, int y, Color color)
