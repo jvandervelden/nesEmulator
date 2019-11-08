@@ -8,9 +8,9 @@ namespace TestPGE.Nes.Bus
 {
     class PpuControlBus : IBusInterface
     {
-        private IPPU ppu;
+        private I2C02 ppu;
 
-        public PpuControlBus(IPPU ppu)
+        public PpuControlBus(I2C02 ppu)
         {
             this.ppu = ppu;
         }

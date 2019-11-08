@@ -15,7 +15,6 @@ namespace TestPGE.Nes
         public static byte IMP(Cpu cpu)
         {
             cpu.ImpliedAddress = true;
-            cpu.Fetched = cpu.A;
             return 0;
         }
 

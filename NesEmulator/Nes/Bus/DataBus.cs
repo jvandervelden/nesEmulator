@@ -38,17 +38,11 @@ namespace TestPGE.Nes.Bus
 
         public void Write(uint address, byte data)
         {
-            if (_busConnections[address] == null)
-                throw new ArgumentOutOfRangeException($"There are no devices connected at address {address:X4}");
-
             _busConnections[address].WriteByte(address, data);
         }
 
         public byte Read(uint address, bool readOnly = false)
         {
-            if (_busConnections[address] == null)
-                throw new ArgumentOutOfRangeException($"There are no devices connected at address {address:X4}");
-
             return _busConnections[address].ReadByte(address);
         }
     }

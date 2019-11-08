@@ -125,8 +125,8 @@ namespace TestPGE.Nes
             byte test = (byte)(cpu.A & cpu.Fetched);
 
             UpdateZero(cpu, test);
-            UpdateNegative(cpu, test);
-            cpu.SetFlag(Flags.V, (test & 0b0100_0000) == 0b0100_0000);
+            UpdateNegative(cpu, cpu.Fetched);
+            cpu.SetFlag(Flags.V, (cpu.Fetched & 0x40) == 0x40);
 
             return 0;
         }
@@ -186,7 +186,7 @@ namespace TestPGE.Nes
 
         public static byte BRK(I6502 cpu)
         {
-            cpu.irq(true);
+            cpu.IRQ(true);
             return 0;
         }
 
@@ -348,8 +348,10 @@ namespace TestPGE.Nes
         }
         public static byte JSR(I6502 cpu)
         {
-            cpu.Bus.Write(cpu.StackPointer--, (byte)((cpu.ProgramCounter - 1 >> 8) & 0x00FF));
-            cpu.Bus.Write(cpu.StackPointer--, (byte)(cpu.ProgramCounter - 1 & 0x00FF));
+            cpu.Bus.Write(cpu.GetFullStackAddress(), (byte)((cpu.ProgramCounter - 1 >> 8) & 0x00FF));
+            cpu.StackPointer--;
+            cpu.Bus.Write(cpu.GetFullStackAddress(), (byte)(cpu.ProgramCounter - 1 & 0x00FF));
+            cpu.StackPointer--;
 
             cpu.ProgramCounter = cpu.Address;
 
@@ -414,19 +416,22 @@ namespace TestPGE.Nes
 
         public static byte PHA(I6502 cpu)
         {
-            cpu.Bus.Write(cpu.StackPointer--, cpu.A);
+            cpu.Bus.Write(cpu.GetFullStackAddress(), cpu.A);
+            cpu.StackPointer--;
             return 0;
         }
 
         public static byte PHP(I6502 cpu)
         {
-            cpu.Bus.Write(cpu.StackPointer--, cpu.Status);
+            cpu.Bus.Write(cpu.GetFullStackAddress(), (byte)(cpu.Status | (byte)Flags.B | (byte)Flags.U));
+            cpu.StackPointer--;
             return 0;
         }
 
         public static byte PLA(I6502 cpu)
         {
-            cpu.A = cpu.Bus.Read(++cpu.StackPointer);
+            cpu.StackPointer++;
+            cpu.A = cpu.Bus.Read(cpu.GetFullStackAddress());
 
             UpdateZero(cpu, cpu.A);
             UpdateNegative(cpu, cpu.A);
@@ -436,7 +441,8 @@ namespace TestPGE.Nes
 
         public static byte PLP(I6502 cpu)
         {
-            cpu.Status = cpu.Bus.Read(++cpu.StackPointer);
+            cpu.StackPointer++;
+            cpu.Status = cpu.Bus.Read(cpu.GetFullStackAddress());
             return 0;
         }
 
@@ -484,19 +490,26 @@ namespace TestPGE.Nes
 
         public static byte RTI(I6502 cpu)
         {
-            cpu.Status = cpu.Bus.Read(++cpu.StackPointer);
-            UInt16 lo = cpu.Bus.Read(++cpu.StackPointer);
-            UInt16 hi = cpu.Bus.Read(++cpu.StackPointer);
+            cpu.StackPointer++;
+            cpu.Status = cpu.Bus.Read(cpu.GetFullStackAddress());
+            cpu.StackPointer++;
+            UInt16 lo = cpu.Bus.Read(cpu.GetFullStackAddress());
+            cpu.StackPointer++;
+            UInt16 hi = cpu.Bus.Read(cpu.GetFullStackAddress());
 
             cpu.ProgramCounter = (UInt16)((hi << 8) | lo);
+
+            cpu.SetFlag(Flags.I, false);
 
             return 0;
         }
 
         public static byte RTS(I6502 cpu)
         {
-            UInt16 lo = cpu.Bus.Read(++cpu.StackPointer);
-            UInt16 hi = cpu.Bus.Read(++cpu.StackPointer);
+            cpu.StackPointer++;
+            UInt16 lo = cpu.Bus.Read(cpu.GetFullStackAddress());
+            cpu.StackPointer++;
+            UInt16 hi = cpu.Bus.Read(cpu.GetFullStackAddress());
 
             cpu.ProgramCounter = (UInt16)(((hi << 8) | lo) + 1);
 
@@ -506,21 +519,20 @@ namespace TestPGE.Nes
 
         /**
          * Mirror of OLC add Overflow truth table for subtraction
-         * 
-         * A M ~M R | V | A^M | A^R | ~M^R |
-         * ---------------------------------
-         * 0 0  1 0 | 0 |  0  |  0  |   1  
-         * 0 0  1 1 | 0 |  0  |  1  |   0  
-         * 0 1  0 0 | 0 |  1  |  0  |   0  
-         * 0 1  0 1 | 1 |  1  |  1  |   1  
-         * 1 0  1 0 | 1 |  1  |  1  |   1  
-         * 1 0  1 1 | 0 |  1  |  0  |   0  
-         * 1 1  0 0 | 0 |  0  |  1  |   0  
-         * 1 1  0 1 | 0 |  0  |  0  |   1  
+         * A  M ~A ~M  R | V | A^M | A^R | ~M^R | M^R |
+         * --------------------------------------------
+         * 0  0  1  1  0 | 0 |  0  |  0  |   1  |  0
+         * 0  0  1  1  1 | 0 |  0  |  1  |   0  |  1
+         * 0  1  1  0  0 | 0 |  1  |  0  |   0  |  1
+         * 0  1  1  0  1 | 1 |  1  |  1  |   1  |  0
+         * 1  0  0  1  0 | 0 |  1  |  1  |   1  |  0
+         * 1  0  0  1  1 | 1 |  1  |  0  |   0  |  1
+         * 1  1  0  0  0 | 0 |  0  |  1  |   0  |  1
+         * 1  1  0  0  1 | 0 |  0  |  0  |   1  |  0
          */
         public static byte SBC(I6502 cpu)
         {
-            UInt16 inverse = (UInt16)~cpu.Fetched;
+            UInt16 inverse = (byte)~cpu.Fetched;
 
             UInt16 difference = (UInt16)(cpu.A + inverse + (cpu.GetFlag(Flags.C) ? 1 : 0));
 
@@ -615,9 +627,6 @@ namespace TestPGE.Nes
         public static byte TXS(I6502 cpu)
         {
             cpu.StackPointer = cpu.X;
-
-            UpdateNegative(cpu, cpu.StackPointer);
-            UpdateZero(cpu, cpu.StackPointer);
 
             return 0;
         }

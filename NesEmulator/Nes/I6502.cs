@@ -9,14 +9,14 @@ namespace TestPGE.Nes
 {
     public enum Flags
     {
-        C = (byte)(1 << 0),   // Carry Bit
-        Z = (byte)(1 << 1),   // Zero
-        I = (byte)(1 << 2),   // Disable Interrupts
-        D = (byte)(1 << 3),   // Decimal Mode (unused in this implementation)
-        B = (byte)(1 << 4),   // Break
-        U = (byte)(1 << 5),   // Unused
-        V = (byte)(1 << 6),   // Overflow
-        N = (byte)(1 << 7)    // Negative
+        C = 0x01,   // Carry Bit
+        Z = 0x02,   // Zero
+        I = 0x04,   // Disable Interrupts
+        D = 0x08,   // Decimal Mode (unused in this implementation)
+        B = 0x10,   // Break
+        U = 0x20,   // Unused
+        V = 0x40,   // Overflow
+        N = 0x80    // Negative
     }
 
     public interface I6502
@@ -29,7 +29,7 @@ namespace TestPGE.Nes
         byte Status { get; set; }
 
         bool ImpliedAddress { get; set; }
-        byte Fetched { get; set; }
+        byte Fetched { get; }
         UInt16 Address { get; set; }
         SByte BranchRelativeAddress { get; set; }
 
@@ -41,15 +41,17 @@ namespace TestPGE.Nes
 
         void SetFlag(Flags flag, bool set);
 
+        UInt16 GetFullStackAddress();
+
         // Reset Interrupt - Forces CPU into known state
         void Reset();
 
         // Interrupt Request - Executes an instruction at a specific location
-        void irq(bool SetBreak = false);
+        void IRQ(bool SetBreak = false);
 
         // Non-Maskable Interrupt Request - As above, but cannot be disabled
-        void nmi();
+        void NMI();
 
-        void clock();
+        void Clock();
     }
 }

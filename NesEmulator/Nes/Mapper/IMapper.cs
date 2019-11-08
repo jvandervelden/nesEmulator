@@ -8,15 +8,14 @@ namespace TestPGE.Nes.Mapper
 {
     public interface IMapper
     {
-        uint NonVolitileRamAddress { get; }
-        uint NonVolitileRamSize { get; }
+        byte PrgRomRead(UInt16 cpuAddress);
 
-        uint PrgRomRead(UInt16 cpuAddress);
+        void PrgRomWrite(UInt16 cpuAddress, byte cpuData);
 
-        uint? PrgRomWrite(UInt16 cpuAddress, byte cpuData);
+        byte ChrRomRead(UInt16 ppuAddress);
 
-        uint ChrRomRead(UInt16 ppuAddress);
+        void ChrRomWrite(UInt16 ppuAddress, byte ppuData);
 
-        uint ChrRomWrite(UInt16 ppuAddress, byte ppuData);
+        uint NameTableSize { get; }
     }
 }

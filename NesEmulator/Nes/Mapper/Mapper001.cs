@@ -18,40 +18,82 @@ namespace TestPGE.Nes.Mapper
         private byte ChrRomBankRegister1 = 0x00;
         private byte ChrRomBankRegister2 = 0x00;
 
-        // Possible 8k ram at $6000
-        public uint NonVolitileRamAddress => 0x6000;
+        private byte[] _programRomData;
+        private byte[] _characterRomData;
+        private byte[] _programRamData;
 
-        public uint NonVolitileRamSize => 8192;
-        
-        public Mapper001(INesHeader nesHeader)
+        public uint NameTableSize { get; private set; } = 0;
+
+        public Mapper001(INesHeader nesHeader, byte[] programRomData, byte[] characterRomData)
         {
             _nesHeader = nesHeader;
+            _programRomData = programRomData;
+            _characterRomData = characterRomData;
+
+            // If volitile memory then 8Kb present
+            _programRamData = new byte[nesHeader.HasNonVolMemory ? 0x2000 : 0];
+
+            // 128kb potential ram if no rom is present
+            if (characterRomData.Length == 0)
+                _characterRomData = new byte[0x20000];
         }
 
-        public uint ChrRomRead(UInt16 ppuAddress)
+        public byte ChrRomRead(UInt16 ppuAddress)
         {
-            return ppuAddress;
+            long address = 0;
+
+            switch ((ControlRegister & 0x10) >> 4)
+            {
+                case 0x00:
+                    address = (ChrRomBankRegister1 & 0x1E << 12) | ppuAddress;
+                    break;
+                case 0x01:
+                    address = ((ppuAddress >= 0x1000 ? ChrRomBankRegister2 : ChrRomBankRegister1) << 12) | ppuAddress;
+                    break;
+            }
+
+            return _characterRomData[address];
         }
 
-        public uint ChrRomWrite(UInt16 ppuAddress, byte ppuData)
+        public void ChrRomWrite(UInt16 ppuAddress, byte ppuData)
         {
-            return ppuAddress;
+            long address = 0;
+
+            switch ((ControlRegister & 0x10) >> 4)
+            {
+                case 0x00:
+                    address = (ChrRomBankRegister1 & 0x1E << 12) | ppuAddress;
+                    break;
+                case 0x01:
+                    address = ((ppuAddress >= 0x1000 ? ChrRomBankRegister2 : ChrRomBankRegister1) << 12) | ppuAddress;
+                    break;
+            }
+
+            _characterRomData[address] = ppuData;
         }
 
-        public uint PrgRomRead(UInt16 cpuAddress)
+        public byte PrgRomRead(UInt16 cpuAddress)
         {
+            if (cpuAddress >= 0x6000 && cpuAddress <= 0x7FFF)
+                return _programRamData[cpuAddress & 0x1FFF];
+
+            long address = 0;
+
             switch((ControlRegister & 0x0C) >> 2)
             {
                 case 0x00:
                 case 0x01:
-                    return GetPrgAddressFor32KMode(cpuAddress);
+                    address = GetPrgAddressFor32KMode(cpuAddress);
+                    break;
                 case 0x02:
-                    return GetPrgAddressForBankMode2(cpuAddress);
+                    address = GetPrgAddressForBankMode2(cpuAddress);
+                    break;
                 case 0x03:
-                    return GetPrgAddressForBankMode3(cpuAddress);
+                    address = GetPrgAddressForBankMode3(cpuAddress);
+                    break;
             }
 
-            return cpuAddress;
+            return _programRomData[address];
         }
 
         /// <summary>
@@ -125,9 +167,9 @@ namespace TestPGE.Nes.Mapper
         /// <param name="cpuAddress">Cpu address being accessed</param>
         /// <param name="cpuData">Data being written</param>
         /// <returns>The address into Non Volitile Memory, null if outside Ram bounds.</returns>
-        public uint? PrgRomWrite(UInt16 cpuAddress, byte cpuData)
+        public void PrgRomWrite(UInt16 cpuAddress, byte cpuData)
         {
-            bool writingToRam = (cpuAddress >= NonVolitileRamAddress && cpuAddress <= NonVolitileRamAddress + NonVolitileRamSize);
+            bool writingToRam = (cpuAddress >= 0x6000 && cpuAddress <= 0x7FFF);
             bool resetShiftRegister = (cpuData & 0x80) == 0x80;
 
             // Only shift if not writing to ram
@@ -144,15 +186,17 @@ namespace TestPGE.Nes.Mapper
                 }
                 else
                 {
-                    ControlRegister = 0x0C;
+                    ControlRegister = (byte)(ControlRegister | 0x0C);
                 }
 
                 if (resetShiftRegister)
                     ShiftRegister = SHIFT_REGISTER_RESET_STATE;
             }
-
-            // Ram address is $6000 - $7FFF if enabled. Strip off the top 3 bits.
-            return writingToRam ? (uint)(cpuAddress & 0x1FFF) : (uint?)null;
+            else
+            {
+                // Ram address is $6000 - $7FFF if enabled. Strip off the top 3 bits.
+                _programRamData[(uint)(cpuAddress & 0x1FFF)] = cpuData;
+            }
         }
 
         private bool AddDataIntoShiftRegister(byte cpuData)

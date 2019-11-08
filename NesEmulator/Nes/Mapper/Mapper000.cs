@@ -8,38 +8,48 @@ namespace TestPGE.Nes.Mapper
 {
     class Mapper000 : IMapper
     {
-        public uint NonVolitileRamAddress => 0x6000;
-        
-        public uint NonVolitileRamSize { get; private set; } = 0;
+        private byte[] _programRomData;
+        private byte[] _characterRomData;
+        private byte[] _programRamData;
 
-        private UInt16 Offset = 0x8000;
+        private bool _mirrorRom = false;
 
-        public Mapper000(INesHeader nesHeader)
+        public uint NameTableSize { get; private set; } = 0;
+
+        public Mapper000(INesHeader nesHeader, byte[] programRomData, byte[] characterRomData)
         {
-            Offset = (UInt16)(0x4000 * nesHeader.PrgRomSize);
+            _programRomData = programRomData;
+            _characterRomData = characterRomData;
 
-            if (nesHeader.HasNonVolMemory)
-                NonVolitileRamSize = 0x2000;
+            _mirrorRom = nesHeader.PrgRomSize < 2;
+
+            _programRamData = new byte[nesHeader.Flags8 == 0 ? 8192 : 8192];
         }
 
-        public uint ChrRomRead(ushort ppuAddress)
+        public byte ChrRomRead(ushort ppuAddress)
         {
-            return ppuAddress;
+            return _characterRomData[ppuAddress];
         }
 
-        public uint ChrRomWrite(ushort ppuAddress, byte ppuData)
+        public void ChrRomWrite(ushort ppuAddress, byte ppuData)
         {
             throw new InvalidOperationException("Cannot write to ROM character memory");
         }
 
-        public uint PrgRomRead(ushort cpuAddress)
+        public byte PrgRomRead(ushort cpuAddress)
         {
-            return (uint)(cpuAddress - Offset - 1);
+            if (cpuAddress > 0x7FFF)
+                return _programRomData[(UInt16)(_mirrorRom ? cpuAddress & 0x3FFF : cpuAddress & 0x7FFF)];
+            else
+                return _programRamData[(UInt16)(cpuAddress & 0x1FFF)];
         }
 
-        public uint? PrgRomWrite(ushort cpuAddress, byte cpuData)
+        public void PrgRomWrite(ushort cpuAddress, byte cpuData)
         {
-            return NonVolitileRamSize > 0 ? (uint?)cpuAddress - Offset - 1 : null;
+            if (cpuAddress > 0x7FFF)
+                throw new InvalidOperationException("Cannot write to ROM program memory");
+            else
+                _programRamData[cpuAddress & 0x1FFF] = cpuData;
         }
     }
 }

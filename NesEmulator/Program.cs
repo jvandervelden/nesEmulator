@@ -17,13 +17,12 @@ namespace TestPGE
         [STAThread]
         static void Main()
         {
-            Application.EnableVisualStyles();
-            Application.SetCompatibleTextRenderingDefault(false);
-
+            //Application.EnableVisualStyles();
+            //Application.SetCompatibleTextRenderingDefault(false);
             td = new Core(256, 244, 3, 3);
-            td.Start();
+            td.Run();
             
-            Application.Run();
+            //Application.Run();
         }
     }
 }

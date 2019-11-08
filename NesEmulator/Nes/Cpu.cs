@@ -12,6 +12,8 @@ namespace TestPGE.Nes
 {
     public class Cpu : I6502
     {
+        public const int CLOCK_DIVISOR = 12;
+
         public const UInt16 INITIAL_EXECUTION_ADDRESS = 0xFFFC;
         public const byte INITIAL_STACK_POINTER_ADDRESS = 0xFD;
         public const UInt16 INTERUPT_EXECUTION_ADDRESS = 0xFFFE;
@@ -25,12 +27,37 @@ namespace TestPGE.Nes
         public byte Status { get; set; } = 0x00;  // Status Register
 
         public bool ImpliedAddress { get; set; } = false;
-        public byte Fetched { get; set; }
+
+        private byte? _fetched = null;
+        public byte Fetched { get
+            {
+                if (Instruction.AddressMode == AddressModes.REL)
+                    throw new Exception($"Accessing fetch with address mode of {Instruction.AddressMode.ToString()}");
+
+                if (!_fetched.HasValue)
+                {
+                    if (Instruction.AddressMode == AddressModes.IMP)
+                        _fetched = A;
+                    else
+                        _fetched = Bus.Read(Address);
+                }
+
+                return _fetched.Value;
+            }
+        }
+
+        private Instruction Instruction { get; set; }
+
         public UInt16 Address { get; set; }
         public SByte BranchRelativeAddress { get; set; }
 
         public int RemainingInstructionCycles { get; set; } = 0;
         private long ClockCycles = 0;
+
+        private bool _interuptFlagged = false;
+        private UInt16 _interuptExecutionAddress = 0x0000;
+        private bool _interuptSetBreak = false;
+        private int _interuptRequiredCycles = 0;
 
         public DataBus Bus { get; set; }
 
@@ -63,6 +90,11 @@ namespace TestPGE.Nes
             else Status &= (byte)~flag;
         }
 
+        public UInt16 GetFullStackAddress()
+        {
+            return (UInt16)(0x0100 + StackPointer);
+        }
+
         // Reset Interrupt - Forces CPU into known state
         public void Reset()
         {
@@ -71,18 +103,19 @@ namespace TestPGE.Nes
 
             // Set it
             ProgramCounter = (UInt16)((hi << 8) | lo);
+            //ProgramCounter = 0xc000;
 
             // Reset internal registers
             A = 0;
             X = 0;
             Y = 0;
             StackPointer = INITIAL_STACK_POINTER_ADDRESS;
-            Status = (byte)(0x00 | Flags.U);
+            Status = 0x00;
 
             // Clear internal helper variables
             BranchRelativeAddress = 0x00;
             Address = 0x0000;
-            Fetched = 0x00;
+            _fetched = null;
 
             // Reset takes time
             RemainingInstructionCycles = 8;
@@ -92,14 +125,19 @@ namespace TestPGE.Nes
         {
             // Push the program counter to the stack. It's 16-bits dont
             // forget so that takes two pushes
-            Bus.Write(StackPointer--, (byte)((ProgramCounter >> 8) & 0x00FF));
-            Bus.Write(StackPointer--, (byte)(ProgramCounter & 0x00FF));
+            Bus.Write(GetFullStackAddress(), (byte)((ProgramCounter >> 8) & 0x00FF));
+            StackPointer--;
+            Bus.Write(GetFullStackAddress(), (byte)(ProgramCounter & 0x00FF));
+            StackPointer--;
 
             // Then Push the status register to the stack
             SetFlag(Flags.B, SetBreak);
             SetFlag(Flags.U, true);
             SetFlag(Flags.I, true);
-            Bus.Write(StackPointer--, Status);
+            Bus.Write(GetFullStackAddress(), Status);
+            SetFlag(Flags.B, false);
+            SetFlag(Flags.U, false);
+            StackPointer--;
 
             // Read new program counter location from fixed address
             UInt16 lo = (UInt16)Bus.Read((UInt16)(interuptAddress + 0));
@@ -108,67 +146,67 @@ namespace TestPGE.Nes
         }
 
         // Interrupt Request - Executes an instruction at a specific location
-        public void irq(bool SetBreak = false)
+        public void IRQ(bool SetBreak = false)
         {
             if (!GetFlag(Flags.I))
             {
-                JumpToInteruptAddress(INTERUPT_EXECUTION_ADDRESS, SetBreak);
-
-                // IRQs take time
-                RemainingInstructionCycles = 7;
+                _interuptFlagged = true;
+                _interuptExecutionAddress = INTERUPT_EXECUTION_ADDRESS;
+                _interuptSetBreak = SetBreak;
+                _interuptRequiredCycles = 7;
             }
         }
 
         // Non-Maskable Interrupt Request - As above, but cannot be disabled
-        public void nmi()
+        public void NMI()
         {
-            JumpToInteruptAddress(NON_MASKABLE_INTERUPT_EXECUTION_ADDRESS);
-
-            RemainingInstructionCycles = 8;
+            _interuptFlagged = true;
+            _interuptExecutionAddress = NON_MASKABLE_INTERUPT_EXECUTION_ADDRESS;
+            _interuptSetBreak = false;
+            _interuptRequiredCycles = 8;
         }
 
-        private void Fetch(Instruction instruction)
+        public void Clock()
         {
-            if (instruction.AddressMode == AddressModes.IMP || instruction.AddressMode == AddressModes.REL)
-                return;
+            if (RemainingInstructionCycles == 0 && _interuptFlagged)
+            {
+                JumpToInteruptAddress(_interuptExecutionAddress, _interuptSetBreak);
+                _interuptFlagged = false;
+                RemainingInstructionCycles = _interuptRequiredCycles;
+            }
 
-            Fetched = Bus.Read(Address);
-        }
-
-        public void clock()
-        {
             if (RemainingInstructionCycles == 0)
             {
-                byte nextOpcode = Bus.Read(ProgramCounter);
+                if (ProgramCounter == 0xE594)
+                {
+                    int breakHere = 0;
+                }
 
-                SetFlag(Flags.U, true);
+                byte nextOpcode = Bus.Read(ProgramCounter);
 
                 ProgramCounter++;
 
-                Instruction instruction = InstructionSet.InstuctionsByOpcode[nextOpcode];
+                Instruction = InstructionSet.InstuctionsByOpcode[nextOpcode];
 
-                RemainingInstructionCycles = instruction.Cycles;
+                RemainingInstructionCycles = Instruction.Cycles;
 
                 try
                 {
-                    byte addressModeExtra = instruction.AddressMode(this);
+                    byte addressModeExtra = Instruction.AddressMode(this);
+                    byte operateExtra = Instruction.Operate(this);
 
-                    Fetch(instruction);
-
-                    byte operateExtra = instruction.Operate(this);
+                    _fetched = null;
 
                     RemainingInstructionCycles += addressModeExtra & operateExtra;
                 }
                 catch (NotImplementedException)
                 {
-                    Console.Error.WriteLine("Encountered un supported opcode: {0} - {1:X2}", instruction.Name, nextOpcode);
+                    Console.Error.WriteLine("Encountered un supported opcode: {0} - {1:X2}", Instruction.Name, nextOpcode);
                 }
                 catch (Exception e)
                 {
-                    Console.Error.WriteLine($"Encountered error: ${e.Message}");
+                    Console.Error.WriteLine($"Encountered error: {e.Message}");
                 }
-
-                SetFlag(Flags.U, true);
             }
 
             ClockCycles++;

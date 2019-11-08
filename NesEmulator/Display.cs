@@ -10,11 +10,12 @@ using System.Windows.Forms;
 
 namespace TestPGE
 {
-    public partial class Form1 : Form
+    public partial class Display : Form
     {
         public string Message { get; set; }
+        public int? DisplayId { get; set; } = null;
 
-        public Form1()
+        public Display()
         {
             InitializeComponent();
             
@@ -33,12 +34,12 @@ namespace TestPGE
             // 
             // timer1
             // 
-            this.timer1.Interval = 100;
+            this.timer1.Enabled = false;
             this.timer1.Tick += new System.EventHandler(this.Timer1_Tick);
-            this.timer1.Start();
             // 
             // Form1
             // 
+            this.ClientSize = new System.Drawing.Size(284, 261);
             this.Name = "Form1";
             this.ResumeLayout(false);
 

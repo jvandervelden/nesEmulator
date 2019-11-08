@@ -1,6 +1,6 @@
 ﻿namespace TestPGE
 {
-    partial class Form1
+    partial class Display
     {
         /// <summary>
         /// Required designer variable.

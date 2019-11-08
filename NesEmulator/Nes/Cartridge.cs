@@ -21,17 +21,14 @@ namespace TestPGE.Nes
         public const int PROGRAM_ROM_ADDRESS_END = 0xFFFF;
 
         private string _filename;
-        private INesHeader _nesHeader;
-        private byte[] _PrgRomData;
-        private byte[] _ChrRomData;
+        public INesHeader NesHeader { get; private set; }
+        
         private List<byte> _extra = new List<byte>();
 
-        private IMapper _mapper;
+        public IMapper Mapper { get; private set; }
 
         private DataBus _cpuBus;
         private DataBus _ppuBus;
-
-        private byte[] _saveRam = new byte[0];
 
         public Cartridge()
         {
@@ -42,18 +39,21 @@ namespace TestPGE.Nes
             if (!File.Exists(fileName))
                 throw new ArgumentException("File does not exist: " + fileName);
 
+            byte[] programRomData;
+            byte[] characterRomData;
+
             using (FileStream fileHandle = File.OpenRead(fileName))
             {
-                _nesHeader = FetchHeaderFromFile(fileHandle);
+                NesHeader = FetchHeaderFromFile(fileHandle);
 
-                if (_nesHeader.HasTrainer)
+                if (NesHeader.HasTrainer)
                     fileHandle.Read(new byte[TRAINER_SIZE], 0, TRAINER_SIZE);
 
-                _PrgRomData = new byte[PROGRAM_ROM_BANK_SIZE * _nesHeader.PrgRomSize];
-                fileHandle.Read(_PrgRomData, 0, _PrgRomData.Length);
+                programRomData = new byte[PROGRAM_ROM_BANK_SIZE * NesHeader.PrgRomSize];
+                fileHandle.Read(programRomData, 0, programRomData.Length);
 
-                _ChrRomData = new byte[CHARACTER_ROM_BANK_SIZE * _nesHeader.ChrRomSize];
-                fileHandle.Read(_ChrRomData, 0, _ChrRomData.Length);
+                characterRomData = new byte[CHARACTER_ROM_BANK_SIZE * NesHeader.ChrRomSize];
+                fileHandle.Read(characterRomData, 0, characterRomData.Length);
 
                 byte[] buffer = new byte[512];
 
@@ -64,10 +64,7 @@ namespace TestPGE.Nes
                 }
             }
 
-            _mapper = CreateMapper(_nesHeader);
-
-            if (_nesHeader.HasNonVolMemory)
-                _saveRam = new byte[_mapper.NonVolitileRamSize];
+            Mapper = CreateMapper(NesHeader, programRomData, characterRomData);
         }
 
         public void Insert(DataBus cpuBus, DataBus ppuBus)
@@ -77,21 +74,24 @@ namespace TestPGE.Nes
 
             cpuBus.ConnectDevice(this, 0x4020, 0xFFFF);
             ppuBus.ConnectDevice(this, 0x0000, 0x1FFF);
-            
-            // $2000 - $2FFF possibly mapped
+
+            if (Mapper.NameTableSize > 0)
+                ppuBus.ConnectDevice(this, 0x2000, 0x2000 + Mapper.NameTableSize);
         }
 
-        private IMapper CreateMapper(INesHeader nesHeader)
+        private IMapper CreateMapper(INesHeader nesHeader, byte[] programRomData, byte[] characterRomData)
         {
             switch(nesHeader.Mapper)
             {
                 case 0x00:
-                    return new Mapper000(nesHeader);
+                    return new Mapper000(nesHeader, programRomData, characterRomData);
                 case 0x01:
-                    return new Mapper001(nesHeader);
+                    return new Mapper001(nesHeader, programRomData, characterRomData);
+                case 0x02:
+                    return new Mapper002(nesHeader, programRomData, characterRomData);
             }
 
-            throw new NotImplementedException($"Mapper ${nesHeader.Mapper} not implemented yet.");
+            throw new NotImplementedException($"Mapper {nesHeader.Mapper} not implemented yet.");
         }
 
         private INesHeader FetchHeaderFromFile(FileStream fileHandle)
@@ -116,8 +116,8 @@ namespace TestPGE.Nes
             nesHeader.Flags13 = header[13];
             nesHeader.Flags14 = header[14];
             nesHeader.Flags15 = header[15];
-            nesHeader.INes2 = ((_nesHeader.Flags7 >> 2) & 0x03) == 0x02;
-            nesHeader.HasTrainer = (0x04 & _nesHeader.Flags6) == 0x04;
+            nesHeader.INes2 = ((NesHeader.Flags7 >> 2) & 0x03) == 0x02;
+            nesHeader.HasTrainer = (0x04 & NesHeader.Flags6) == 0x04;
             nesHeader.Mapper = (byte)((nesHeader.Flags7 & 0xF0) | (nesHeader.Flags6 >> 4));
             nesHeader.HasNonVolMemory = (nesHeader.Flags6 & 0x02) == 0x02;
 
@@ -132,15 +132,16 @@ namespace TestPGE.Nes
 
         public byte ReadByte(uint address)
         {
+            
             // PRG Rom space
-            if (address >= PROGRAM_ROM_ADDRESS_START)
+            if (address >= PROGRAM_ROM_ADDRESS_START && address <= PROGRAM_ROM_ADDRESS_END)
             {
-                return _PrgRomData[_mapper.PrgRomRead((UInt16)address)];
+                return Mapper.PrgRomRead((UInt16)address);
             }
             // CHR Rom space
-            else if (address <= PROGRAM_ROM_ADDRESS_END)
+            else if (address >= CHARACTER_ROM_ADDRESS_START && address <= CHARACTER_ROM_ADDRESS_END)
             {
-                return _ChrRomData[_mapper.ChrRomRead((UInt16)address)];
+                return Mapper.ChrRomRead((UInt16)address);
             }
             else
                 throw new IndexOutOfRangeException("Trying to access address outside PRG and CHR rom range.");
@@ -149,17 +150,14 @@ namespace TestPGE.Nes
         public void WriteByte(uint address, byte data)
         {
             // PRG Rom space
-            if (address >= PROGRAM_ROM_ADDRESS_START)
+            if (address >= PROGRAM_ROM_ADDRESS_START && address <= PROGRAM_ROM_ADDRESS_END)
             {
-                uint? nonVolitileAddress = _mapper.PrgRomWrite((UInt16)address, data);
-
-                if (nonVolitileAddress.HasValue && _nesHeader.HasNonVolMemory)
-                    _saveRam[nonVolitileAddress.Value] = data;
+                Mapper.PrgRomWrite((UInt16)address, data);
             }
             // CHR Rom space
-            else if (address <= PROGRAM_ROM_ADDRESS_END)
+            else if (address >= CHARACTER_ROM_ADDRESS_START && address <= CHARACTER_ROM_ADDRESS_END)
             {
-                _mapper.ChrRomWrite((UInt16)address, data);
+                Mapper.ChrRomWrite((UInt16)address, data);
             }
             else
                 throw new IndexOutOfRangeException("Trying to access address outside PRG and CHR rom range.");

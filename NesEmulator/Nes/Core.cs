@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -8,86 +7,100 @@ using System.Windows.Forms;
 using TestPGE.Nes.Memory;
 using TestPGE.Nes.Bus;
 using System.Threading;
+using Microsoft.Xna.Framework;
 
 namespace TestPGE.Nes
 {
     public class Core : GameEngine
     {
-        public static readonly double MASTER_CLOCK_FREQ = 21441960;
-        public static readonly double CPU_CLOCK_FREQ = MASTER_CLOCK_FREQ / 16d;
-        public static readonly double MS_BETWEN_CYCLES = CPU_CLOCK_FREQ / TICKS_PER_MILLISECOND;
+        public static readonly double TARGET_CLOCK_FREQ = 1789772;
+        public static readonly double TICKS_BETWEN_CYCLES = TARGET_CLOCK_FREQ / TimeSpan.TicksPerMillisecond;
         public static UInt16 NES_RAM_SIZE = 0x0800; // 2kb of Ram
         public static UInt16 CPU_ADDRESSABLE_RANGE = 0xFFFF; // 16 bit cpu address bus.
         public static UInt16 PPU_ADDRESSABLE_RANGE = 0x3FFF; // 14 bit ppu address bus.
 
-        public Core(int width, int height, int px, int py) : base(width, height, px, py) { }
+        public static readonly long NTSC_FRAME_CYCLES = 29780;
+        public static readonly long NTSC_V_BLANK_CYCLES = 2273;
+
+        public Core(int width, int height, int px, int py) : base(width, height + 128 / py, px, py) { }
 
         private Ram _ram;
+        private NameTableRam _vram;
+        private PaletteRam _paletteRam;
         private List<MirroredRam> mirroredRam = new List<MirroredRam>();
         private I6502 _cpu;
-        private IPPU _ppu;
+        private I2C02 _ppu;
         private DataBus _cpuBus;
         private DataBus _ppuBus;
         private PpuControlBus _ppuControlBus;
+        private I2A03 _cpuExtended;
+        private IOamDma _oamDma;
+        private Controller _controller;
 
         private Cartridge _cartridge;
 
         protected override bool OnUserCreate()
         {
             // SETUP THE RAM
-            _ram = new Ram(NES_RAM_SIZE, 0x0000);
-
-            mirroredRam.Add(new MirroredRam(_ram, (uint)NES_RAM_SIZE * 1));
-            mirroredRam.Add(new MirroredRam(_ram, (uint)NES_RAM_SIZE * 2));
-            mirroredRam.Add(new MirroredRam(_ram, (uint)NES_RAM_SIZE * 3));
-
-            // Simple bubble sort program from 
-            // string program = "A0 00 8C 32 00 B1 30 AA C8 CA B1 30 C8 D1 30 90 11 F0 0F 48 B1 30 88 91 30 68 C8 91 30 A9 FF 8D 32 00 CA D0 E5 2C 32 00 30 D6 60";
-            // string[] programHexCodes = program.Split(' ');
-
-            // Extend by 6 bytes for the irq, nmi, reset addresses.
-            // byte[] programBytes = new byte[programHexCodes.Length + 6];
-
-            //for (int i = 0; i < programHexCodes.Length; i++)
-            //    programBytes[i] = byte.Parse(programHexCodes[i], System.Globalization.NumberStyles.HexNumber);
-
-            //UInt16 startAddress = (UInt16)(0xFFFF - programBytes.Length + 1);
-
-            //programBytes[programBytes.Length - 3] = (byte)(startAddress >> 8);
-            //programBytes[programBytes.Length - 4] = (byte)startAddress;
-            
-            // Setup bytes to sort.
-            //_ram.WriteByte(0x0030, 0x40);
-            //_ram.WriteByte(0x0031, 0x00);
-            //_ram.WriteByte(0x0040, 0x05);
-            //_ram.WriteByte(0x0041, 0x45);
-            //_ram.WriteByte(0x0042, 0x29);
-            //_ram.WriteByte(0x0043, 0x35);
-            //_ram.WriteByte(0x0044, 0x75);
-            //_ram.WriteByte(0x0045, 0x30);
+            _ram = new Ram(NES_RAM_SIZE);
 
             // SETUP THE BUSSES
             _cpuBus = new DataBus(CPU_ADDRESSABLE_RANGE);
             _ppuBus = new DataBus(PPU_ADDRESSABLE_RANGE);
 
-            _cpuBus.ConnectDevice(_ram, _ram.StartAddress, _ram.EndAddress);
-            foreach (MirroredRam mr in mirroredRam)
-                _cpuBus.ConnectDevice(mr, mr.StartAddress, mr.EndAddress);
-
+            _cpuBus.ConnectDevice(_ram, 0x0000, 0x1FFF);
+            
             // SETUP THE CPU
             _cpu = new Cpu(_cpuBus);
             
             // SETUP THE PPU
-            _ppu = new Ppu(_ppuBus);
+            _ppu = new Ppu(_ppuBus, _cpu);
+            _oamDma = new OamDirectMemoryAccess(_ppu, _ram);
             _ppuControlBus = new PpuControlBus(_ppu);
 
+            _cpuExtended = new CpuExtended(_oamDma, _cpu);
+
+            _cpuBus.ConnectDevice(_cpuExtended, 0x4000, 0x4015);
+            // 4016 is connected to controller device
+            _cpuBus.ConnectDevice(_cpuExtended, 0x4017, 0x401F);
             _cpuBus.ConnectDevice(_ppuControlBus, 0x2000, 0x3FFF);
 
             // SETUP THE CARTRIDGE
             _cartridge = new Cartridge();
-            //_cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
-            _cartridge.Load(@"D:\tmp\Super Mario Bros. (World).nes");
+            //_cartridge.Load(@"D:\tmp\full_palette.nes");
+            //_cartridge.Load(@"D:\tmp\nestest.nes");
+            _cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
+            //_cartridge.Load(@"D:\tmp\Super Mario Bros. (World).nes");
+            //_cartridge.Load(@"D:\tmp\Clu Clu Land (World).nes");
+            //_cartridge.Load(@"D:\tmp\DuckTales (USA).nes");
+            //_cartridge.Load(@"D:\tmp\Chip n Dale - Rescue Rangers (USA).nes");
+            //_cartridge.Load(@"D:\tmp\Ninja Gaiden (USA).nes");
+
+
             _cartridge.Insert(_cpuBus, _ppuBus);
+
+            if (_cartridge.Mapper.NameTableSize < 0x2000)
+            {
+                _vram = new NameTableRam(_cartridge);
+                _ppuBus.ConnectDevice(_vram, 0x2000, 0x3EFF);
+                
+                _paletteRam = new PaletteRam();
+                _ppuBus.ConnectDevice(_paletteRam, 0x3F00, 0x3FFF);
+            }
+
+            // Setup Input
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Up, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Down, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Left, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Right, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Z, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.X, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.RightShift, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Enter, false);
+
+            _controller = new Controller();
+
+            _cpuBus.ConnectDevice(_controller, 0x4016, 0x4016);
 
             // RESET TO INITIAL STATE
             _cpu.Reset();
@@ -96,38 +109,107 @@ namespace TestPGE.Nes
 
             printThread.Start();
 
+            //CreateSubDisplay(32 * 8, 16 * 8, "Pattern Table");
+
             return true;
         }
 
-        long currentCycleTimeMs = 10;
+        long _currentCycleTimeTicks = 0;
 
-        protected override bool OnUserUpdate(double elapsedTime)
+        long _masterFps = 0;
+        int frames = 0;
+
+        protected void UpdateControllerState()
         {
-            bool print = false;
+            _controller.SetButton(Controller.ControllerButtons.UP, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Up]);
+            _controller.SetButton(Controller.ControllerButtons.DOWN, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Down]);
+            _controller.SetButton(Controller.ControllerButtons.LEFT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Left]);
+            _controller.SetButton(Controller.ControllerButtons.RIGHT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Right]);
+            _controller.SetButton(Controller.ControllerButtons.B, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Z]);
+            _controller.SetButton(Controller.ControllerButtons.A, interestedKeys[Microsoft.Xna.Framework.Input.Keys.X]);
+            _controller.SetButton(Controller.ControllerButtons.SELECT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.RightShift]);
+            _controller.SetButton(Controller.ControllerButtons.START, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Enter]);
+        }
 
-            currentCycleTimeMs += (int)Math.Round(elapsedTime * TICKS_PER_MILLISECOND);
-            
-            // Slow down to cpu cycles to what the NES clock is.
-        //    if (currentCycleTimeMs > MS_BETWEN_CYCLES)
-        //    {
-                print = _cpu.RemainingInstructionCycles == 0 || print;
+        protected override bool OnUserUpdate(long elapsedTicks)
+        {
+            UpdateControllerState();
+                        
+            int cpuWaitCycles = 3;
 
-                _cpu.clock();
+            do
+            {
+                if (--cpuWaitCycles == 0)
+                {
+                    _cpu.Clock();
+                    if (_cpu.RemainingInstructionCycles == 0)
+                    {
+                    }
+                    cpuWaitCycles = 3;
+                }
+
                 _ppu.Clock();
-                currentCycleTimeMs -= (int)MS_BETWEN_CYCLES;
+            } while (_ppu.RemainingDotsInFrame > 0);
 
-            //if (print) PrintState();
-            //    }
+            if (_ppu.BackgroundRenderEnabled)
+                Draw(0, 0, _ppu.RenderBackground());
+
+            _currentCycleTimeTicks += elapsedTicks;
+
+            if (_currentCycleTimeTicks > TimeSpan.TicksPerSecond)
+            {
+                _masterFps = frames;
+                _currentCycleTimeTicks = 0;
+                frames = 0;
+            }
+
+                DrawPalettes();
+            frames++;
 
             return true;
+        }
+
+        private void DrawPalettes()
+        {
+            SimpleTexture bgTex = new SimpleTexture(4, 4);
+            Color bgColor = BaseColors.Palette[_ppuBus.Read(0x3F00) & 0x3F];
+
+            for (int i = 0; i < 16; i++)
+                bgTex.Data[i] = bgColor;
+
+            Draw(0, 256, bgTex);
+
+            for (int i = 0; i < 8; i++)
+            {
+                SimpleTexture palTex = new SimpleTexture(12, 4);
+
+                Color[] palette = new Color[] {
+                    BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 1)) & 0x3F],
+                    BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F],
+                    BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F]
+                };
+
+                for (int j = 0; j < 48; j++)
+                    palTex.Data[j] = palette[j % 12 / 4];
+
+                Draw(i * 12 + i * 5 + 12, 266, palTex);
+            }
         }
 
         private void tStart(object data)
         {
-            while (true)
+            while (IsRunning)
             {
-                PrintState();
-                PrintPatternTables();
+                try
+                {
+                    //PrintState();
+                    //PrintPPUData();
+                    //PrintPatternTables();
+                }
+                catch (NoGraphicsException)
+                {
+                    // Display was closed.
+                }
             }
         }
 
@@ -139,9 +221,101 @@ namespace TestPGE.Nes
                 {
                     for (byte y = 0; y <= 0x0F; y++)
                     {
-                        Draw(x * 8, y * 8 + p * 128, _ppu.PrintPattern(p, (byte)((x << 4) + y)));
+                        Draw(x * 2 + p * 32, y * 2 + 256, _ppu.PrintPattern(p, (byte)((x << 4) + y), 8), 0);
                     }
                 }
+            }
+        }
+
+        private void PrintPPUData()
+        {
+            Console.SetCursorPosition(0, 0);
+
+            StringBuilder line = new StringBuilder();
+            
+            /*
+            Console.WriteLine("\n---------- Pattern Data -------------------------------------------");
+
+            line.Append("0000: ");
+
+            for (UInt16 i = 0x0000; i < 0x2000; i++)
+            {
+                byte data = _ppuBus.Read(i);
+
+                line.AppendFormat("0x{0:X2}", data);
+                line.Append(" ");
+
+                if (i % 32 == 31)
+                {
+                    Console.WriteLine(line.ToString());
+
+                    line.Clear().AppendFormat("{0:x4}", i + 1).Append(": ");
+                }
+                else if (i % 8 == 7)
+                    line.Append("- ");
+            }
+            */
+            Console.WriteLine("\n---------- Nametable Data -------------------------------------------");
+
+            line.Clear().Append("2000: ");
+            
+            for (UInt16 i = 0x2000; i < 0x23C0; i++)
+            {
+                byte data = _ppuBus.Read(i);
+
+                line.AppendFormat("0x{0:X2}", data);
+                line.Append(" ");
+
+                if (i % 32 == 31)
+                {
+                    Console.WriteLine(line.ToString());
+                    
+                    line.Clear().AppendFormat("{0:x4}", i + 1).Append(": ");
+                }
+                else if (i % 8 == 7)
+                    line.Append("- ");
+            }
+
+            line.Clear();
+            Console.WriteLine("\n---------- Attribute Data -------------------------------------------");
+
+            line.Append("23C0: ");
+
+            for (UInt16 i = 0x23C0; i < 0x2400; i++)
+            {
+                byte data = _ppuBus.Read(i);
+
+                line.AppendFormat("0x{0:X2}", data);
+                line.Append("                ");
+
+                if (i % 8 == 7)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine();
+                    Console.WriteLine(line.ToString());
+
+                    line.Clear().AppendFormat("{0:x4}", i + 1).Append(": ");
+                }
+                else if (i % 2 == 1)
+                    line.Append("- ");
+            }
+
+            Console.WriteLine("\n---------- Palette Data -------------------------------------------");
+
+            Console.Write("Palettes: ");
+
+            for (UInt16 i = 0x3F00; i < 0x3F20; i++)
+            {
+                if (i % 4 == 0)
+                    Console.Write("{0:d2}: ", (i - 0x3F00) / 4);
+
+                byte palByte = _ppuBus.Read(i);
+
+                Console.Write("0x{0:x2} ", palByte);
+
+                if (i % 4 == 3)
+                    Console.Write(" | ");
             }
         }
 
@@ -168,20 +342,12 @@ namespace TestPGE.Nes
             dumpLines[7] += String.Format("  Stack P: ${0:X2}", _cpu.StackPointer);
             dumpLines[8] += String.Format("  PC:      ${0:X4}", _cpu.ProgramCounter);
 
-            dumpLines[10] += String.Format("  Stack:", _cpu.ProgramCounter);
-
-            List<string> disassembly = Disassemble(10);
-
-            int x = 0;
-
-            //for (byte i = _cpu.StackPointer; i <= Cpu.INITIAL_STACK_POINTER_ADDRESS; i++, x++)
-            //    dumpLines[11 + x] += string.Format("  $00{0:X2}: ${1:X2}", i, _ram.ReadByte(i));
-
-            for (int y = 0; y < 10; y++, x++)
-                dumpLines[12 + x] += $"  {disassembly[y]}";
+            dumpLines[12] += String.Format("  Master Freq: {0}", _masterFps);
+            dumpLines[13] += String.Format("  Dots:        {0}", _ppu.RemainingDotsInFrame);
 
             Console.WriteLine();
             Console.WriteLine(" Zeropage:");
+
             foreach (string dumpLine in dumpLines) Console.WriteLine(dumpLine);
         }
 

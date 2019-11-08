@@ -9,25 +9,23 @@ namespace TestPGE.Nes.Memory
 {
     public class MirroredRam : IBusInterface
     {
-        public uint StartAddress { get; private set; } = 0;
-        public uint EndAddress { get { return StartAddress + _ramToMirror.EndAddress - _ramToMirror.StartAddress; } }
-
         private Ram _ramToMirror;
+        private UInt16 _mask;
 
-        public MirroredRam(Ram ramToMirror, uint startAddress = 0)
+        public MirroredRam(Ram ramToMirror, UInt16 mask)
         {
             _ramToMirror = ramToMirror;
-            StartAddress = startAddress;
+            _mask = mask;
         }
 
         public byte ReadByte(uint address)
         {
-            return _ramToMirror.ReadByteAbs(address - StartAddress);
+            return _ramToMirror.ReadByte(address & _mask);
         }
 
         public void WriteByte(uint address, byte data)
         {
-            _ramToMirror.WriteByteAbs(address - StartAddress, data);
+            _ramToMirror.WriteByte(address & _mask, data);
         }
     }
 }
