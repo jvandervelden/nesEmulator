@@ -13,7 +13,7 @@ namespace TestPGE
     public partial class Display : Form
     {
         public string Message { get; set; }
-        public int? DisplayId { get; set; } = null;
+        public string DisplayId { get; set; } = null;
 
         public Display()
         {

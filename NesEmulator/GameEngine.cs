@@ -30,15 +30,21 @@ namespace TestPGE
             OPEN
         }
 
-        //private Display _mainDisplay;
-        private List<Display> _subDisplay;
-        //private Graphics _graphics;
-        private List<Graphics> _subGraphics;
+        private class SubDisplayInfo
+        {
+            public Display Display { get; set; } = null;
+            public Graphics Graphics { get; set; } = null;
+            public int PixelWidth { get; set; } = 1;
+            public int PixelHeight { get; set; } = 1;
+            public int Width { get; set; } = 1;
+            public int Height { get; set; } = 1;
+        }
+
+        private Dictionary<string, SubDisplayInfo> _subDisplay;
         private int _pixelWidth = 1;
         private int _pixelHeight = 1;
         private int _width = 1;
         private int _height = 1;
-        //private Thread loopThread;
 
         protected Dictionary<Keys, bool> interestedKeys = new Dictionary<Keys, bool>();
 
@@ -88,8 +94,6 @@ namespace TestPGE
                 interestedKeys[interestedKey] = currentState.IsKeyDown(interestedKey);
             }
 
-            // TODO: Add your update logic here
-
             base.Update(gameTime);
         }
 
@@ -104,46 +108,28 @@ namespace TestPGE
             base.Draw(gameTime);
         }
 
+        protected override void OnExiting(object sender, EventArgs args)
+        {
+            base.OnExiting(sender, args);
+            
+        }
+
         public void Start()
         {
             spriteBatch = new SpriteBatch(GraphicsDevice);
-            //foreach (Keys key in Enum.GetValues(typeof(Keys)))
-            //    _keyState.TryAdd(key, KeyState.OPEN);
 
-            //_mainDisplay = CreateDisplay(_width, _height, _pixelWidth, _pixelHeight);
-            //_mainDisplay.KeyDown += _mainDisplay_KeyDown;
-            //_mainDisplay.KeyUp += _mainDisplay_KeyUp;
-
-            //_mainDisplay.FormClosing += _drawControl_FormClosing;
-
-            _subDisplay = new List<Display>();
+            _subDisplay = new Dictionary<string, SubDisplayInfo>();
 
             Console.WindowWidth = Math.Min(105, Console.LargestWindowWidth);
             Console.WindowHeight = Math.Min(68, Console.LargestWindowHeight);
             Console.SetBufferSize(Math.Max(Console.BufferWidth, 190), Math.Max(Console.BufferHeight, 67));
             Console.CursorVisible = false;
 
-            //_graphics = _mainDisplay.CreateGraphics();
-            _subGraphics = new List<Graphics>();
+            IsRunning = true;
 
-            //_graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-
-            run = true;
-
-            if (OnUserCreate())
+            if (!OnUserCreate())
             {
-                //loopThread = new Thread(this.MainLoop);
-                //loopThread.Priority = ThreadPriority.Highest;
-                //lastFireTime = DateTime.Now.Ticks;
-                //loopThread.Start();
-
-                //fpsTimer.Elapsed += FpsTimer_Elapsed;
-                //fpsTimer.Interval = 1000;
-                //fpsTimer.Start();
-            }
-            else
-            {
-                run = false;
+                IsRunning = false;
                 Exit();
             }
         }
@@ -161,105 +147,58 @@ namespace TestPGE
             return display;
         }
 
-        protected int CreateSubDisplay(int width, int height, string caption)
+        protected void CreateSubDisplay(int width, int height, string displayId)
         {
-            return CreateSubDisplay(width, height, _pixelWidth, _pixelHeight, caption);
+            CreateSubDisplay(width, height, _pixelWidth, _pixelHeight, displayId);
         }
 
-        protected int CreateSubDisplay(int width, int height, int pw, int ph, string caption)
+        protected void CreateSubDisplay(int width, int height, int pw, int ph, string displayId)
         {
-            Display subDisplay = CreateDisplay(width, height, _pixelWidth, _pixelHeight);
+            Display subDisplay = CreateDisplay(width, height, pw, ph);
             Graphics subGraphics = subDisplay.CreateGraphics();
 
-            subDisplay.Message = caption;
-            subDisplay.DisplayId = _subDisplay.Count;
+            subDisplay.Message = displayId;
+            subDisplay.DisplayId = displayId;
             subDisplay.FormClosing += SubDisplay_FormClosing;
 
             subGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
-
-            _subDisplay.Add(subDisplay);
-            _subGraphics.Add(subDisplay.CreateGraphics());
-
-            return subDisplay.DisplayId.Value;
+            
+            _subDisplay.Add(displayId, new SubDisplayInfo() {
+                Display = subDisplay,
+                Graphics = subGraphics,
+                PixelWidth = pw,
+                PixelHeight = ph,
+                Width = width,
+                Height = height
+            });
         }
 
         private void SubDisplay_FormClosing(object sender, System.Windows.Forms.FormClosingEventArgs e)
         {
             if (_subDisplay.Count > 0)
             {
-                _subDisplay.RemoveAt(((Display)sender).DisplayId.Value);
-                _subGraphics.RemoveAt(((Display)sender).DisplayId.Value);
+                _subDisplay.Remove(((Display)sender).DisplayId);
             }
         }
 
-        //private void _mainDisplay_KeyUp(object sender, KeyEventArgs e)
-        //{
-            //_keyState.AddOrUpdate(e.KeyCode, (k) => KeyState.PRESSED, (k, ks) => KeyState.PRESSED);
-        //}
-
-        //private void _mainDisplay_KeyDown(object sender, KeyEventArgs e)
-        //{
-            //_keyState.AddOrUpdate(e.KeyCode, (k) => KeyState.HELD, (k, ks) => KeyState.HELD);
-        //}
-
-        private void ClearPressedKeys()
-        {
-            //foreach (Keys key in _keyState.Keys)
-            //{
-            //    _keyState.TryUpdate(key, KeyState.OPEN, KeyState.PRESSED);
-            //}
-        }
-
-        private void FpsTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
-        {
-            //this._mainDisplay.SetText($"FPS: {fps.ToString("N2")}");
-        }
-
-        //private void _drawControl_FormClosing(object sender, FormClosingEventArgs e)
-        //{
-            //this.run = false;
-
-            //_graphics = null;
-
-            //for (int i = _subDisplay.Count - 1; i >= 0; i--)
-            //    _subDisplay[i].Close();
-
-            //this.loopThread.Join();
-
-            //Application.Exit();
-        //}
-
         private long lastFireTime;
-        private bool run;
         private bool updatePass;
-        private long fps = 0;
-        private long cyclesInFrame = 0;
 
-        protected bool IsRunning { get { return run; } }
+        protected bool IsRunning { get; private set; }
 
         private void MainLoop(object data)
         {
             updatePass = true;
 
-            while (run && updatePass)
+            while (IsRunning && updatePass)
             {
-                //cyclesInFrame++;
-
                 long currentTime = DateTime.Now.Ticks;
                 long elapsedTicks = currentTime - lastFireTime;
-
-                //if (elapsedTicks > TimeSpan.TicksPerMillisecond)
-                //{
-                //    fps = cyclesInFrame * 1000;
-                //    cyclesInFrame = 0;
-                //}
 
                 updatePass = this.OnUserUpdate(elapsedTicks);
 
                 if (elapsedTicks != 0)
                     lastFireTime = currentTime;
-
-                //ClearPressedKeys();
             }
         }
 
@@ -267,17 +206,12 @@ namespace TestPGE
 
         protected abstract bool OnUserUpdate(long elapsedTicks);
 
-        private Graphics GetDisplay(int? display = null)
+        private SubDisplayInfo GetDisplay(string display)
         {
-            if (display.HasValue)
-            {
-                if (display.Value < _subGraphics.Count)
-                    return _subGraphics[display.Value];
-                else
-                    throw new NoGraphicsException();
-            }
+            if (_subDisplay.ContainsKey(display))
+                return _subDisplay[display];
 
-            throw new NoGraphicsException();
+            return null;
         }
 
         protected void Clear(System.Drawing.Color bgColor, int? display = null)
@@ -285,15 +219,20 @@ namespace TestPGE
             GraphicsDevice.Clear(new Microsoft.Xna.Framework.Color((uint)bgColor.ToArgb()));
         }
 
-        protected void Draw(int x, int y, SimpleTexture image, int? display = null)
+        protected void Draw(int x, int y, SimpleTexture image)
         {
             spriteBatch.Draw(image.ToXnaTexture(GraphicsDevice), new Microsoft.Xna.Framework.Rectangle(x * _pixelWidth, y * _pixelHeight, image.Width * _pixelWidth, image.Height * _pixelHeight), Microsoft.Xna.Framework.Color.White);
-            //spriteBatch.Draw(image.ToXnaTexture(GraphicsDevice), new Microsoft.Xna.Framework.Rectangle(x, y, image.Width, image.Height), Microsoft.Xna.Framework.Color.White);
         }
 
-        protected void Draw(int x, int y, Image image, int? display = null)
+        protected void Draw(int x, int y, SimpleTexture image, string display)
         {
-            GetDisplay(display).DrawImage(image, x * _pixelWidth, y * _pixelHeight, image.Width * _pixelWidth, image.Height * _pixelHeight);
+            SubDisplayInfo displayInfo = GetDisplay(display);
+
+            displayInfo?.Graphics.DrawImage(image.ToBitMap(), 
+                    x * displayInfo.PixelWidth, 
+                    y * displayInfo.PixelHeight, 
+                    image.Width * displayInfo.PixelWidth, 
+                    image.Height * displayInfo.PixelHeight);
         }
 
         protected void Draw(int x, int y, Microsoft.Xna.Framework.Color color)
@@ -304,27 +243,34 @@ namespace TestPGE
             spriteBatch.Draw(tex, new Microsoft.Xna.Framework.Rectangle(x * _pixelWidth, y * _pixelHeight, _pixelWidth, _pixelHeight), Microsoft.Xna.Framework.Color.White);
         }
 
-        protected void Draw(int x, int y, System.Drawing.Color color, int? display = null)
+        protected void Draw(int x, int y, System.Drawing.Color color, string display)
         {
-            GetDisplay(display).FillRectangle(new SolidBrush(color), new System.Drawing.Rectangle(x * _pixelWidth, y * _pixelHeight, _pixelWidth, _pixelHeight));
+            SubDisplayInfo displayInfo = GetDisplay(display);
+
+            displayInfo?.Graphics.FillRectangle(new SolidBrush(color), new System.Drawing.Rectangle(x * _pixelWidth, y * _pixelHeight, _pixelWidth, _pixelHeight));
         }
 
-        protected void DrawRect(int x, int y, int width, int height, System.Drawing.Color color, bool fill = true, int? display = null)
+        protected void DrawRect(int x, int y, int width, int height, System.Drawing.Color color, bool fill = true, string display = null)
         {
+            SubDisplayInfo displayInfo = GetDisplay(display);
+
+            if (displayInfo == null) return;
+
             var pen = new Pen(color);
             var brush = new SolidBrush(color);
             var rectangle = new System.Drawing.Rectangle(x * _pixelWidth, y * _pixelHeight, width * _pixelWidth, height * _pixelHeight);
 
-            if (fill) GetDisplay(display).FillRectangle(brush, rectangle);
-            else GetDisplay(display).DrawRectangle(pen, rectangle);
+            if (fill) displayInfo?.Graphics.FillRectangle(brush, rectangle);
+            else displayInfo?.Graphics.DrawRectangle(pen, rectangle);
         }
 
-        protected void DrawString(int x, int y, String message, System.Drawing.Color color, int? display = null)
+        protected void DrawString(int x, int y, String message, System.Drawing.Color color, string display)
         {
-            GetDisplay(display).DrawString(message, new Font(FontFamily.GenericMonospace, 10), new SolidBrush(color), x, y);
+            SubDisplayInfo displayInfo = GetDisplay(display);
+            displayInfo?.Graphics.DrawString(message, new Font(FontFamily.GenericMonospace, 10), new SolidBrush(color), x, y);
         }
 
-        protected void DrawLine(int x1, int y1, int x2, int y2, System.Drawing.Color color)
+        protected void DrawLine(int x1, int y1, int x2, int y2, System.Drawing.Color color, string display)
         {
             double slope = (x1 - x2) == 0 ? 1 : (y1 - y2) / (x1 - x2);
             double b = y1 - slope * x1;
@@ -337,7 +283,7 @@ namespace TestPGE
                 for (int ty = sY; ty <= eY; ty++)
                 {
                     double tx = Math.Round((ty - b) / slope);
-                    Draw((int)Math.Round(tx), ty, color);
+                    Draw((int)Math.Round(tx), ty, color, display);
                 }
             }
             else
@@ -348,12 +294,12 @@ namespace TestPGE
                 for (int tx = sX; tx <= eX; tx++)
                 {
                     double ty = Math.Round(slope * tx + b);
-                    Draw(tx, (int)Math.Round(ty), color);
+                    Draw(tx, (int)Math.Round(ty), color, display);
                 }
             }
         }
 
-        protected void DrawWireFrameModel(List<Vec2d> modelCoordinates, double x, double y, double r, double s, System.Drawing.Color color)
+        protected void DrawWireFrameModel(List<Vec2d> modelCoordinates, double x, double y, double r, double s, System.Drawing.Color color, string display)
 	    {
             // Create translated model vector of coordinate pairs
             List<Vec2d> transformedCoordinates = new List<Vec2d>();
@@ -379,7 +325,7 @@ namespace TestPGE
 		    {
 			    int j = (i + 1);
                 DrawLine((int)Math.Round(transformedCoordinates[i % verts].X), (int)Math.Round(transformedCoordinates[i % verts].Y),
-                    (int)Math.Round(transformedCoordinates[j % verts].X), (int)Math.Round(transformedCoordinates[j % verts].Y), color);
+                    (int)Math.Round(transformedCoordinates[j % verts].X), (int)Math.Round(transformedCoordinates[j % verts].Y), color, display);
 		    }
 	    }
     }

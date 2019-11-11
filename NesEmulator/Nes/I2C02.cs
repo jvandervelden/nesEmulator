@@ -21,8 +21,10 @@ namespace TestPGE.Nes
 
         SimpleTexture RenderBackground();
 
-        SimpleTexture PrintPattern(byte tableNumber, byte sprite, byte? palette);
-        
+        SimpleTexture PrintPattern(byte tableNumber, byte sprite, byte? palette = null);
+        SimpleTexture PrintTile(byte nameTable, byte xTile, byte yTile);
+
+
         bool BackgroundRenderEnabled { get; }
 
         long RemainingDotsInFrame { get; }

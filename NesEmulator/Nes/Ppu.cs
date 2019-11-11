@@ -73,12 +73,6 @@ namespace TestPGE.Nes
 
             public ScanlineSprite Load(DataBus ppuBus, byte patternTable, bool is8x16mode, int scanline)
             {
-                // if (is8x16mode)
-                // {
-
-                // }
-                // else
-                // {
                 // 8x16 000j iiii iiis hsss
                 // 8x8  000p iiii iiii hsss
                 // p - patternTable
@@ -626,7 +620,34 @@ namespace TestPGE.Nes
 
             return patternTexture;
         }
+
+        public SimpleTexture PrintTile(byte nameTable, byte xTile, byte yTile)
+        {
+            SimpleTexture patternTexture = new SimpleTexture(8, 8);
+            byte patternTable = (byte)((_registers[PPU_MASK_REGISTER] & 0x10) >> 4);
+            UInt16 nametableAddress = (UInt16)(yTile * 32 + xTile + nameTable * 0x400 + 0x2000);
+            byte sprite = Bus.Read(nametableAddress);
+
+            for (byte pixelY = 0; pixelY <= 0x07; pixelY++)
+            {
+                UInt16 msbAddress = (UInt16)((patternTable << 12) | (sprite << 4) | pixelY);
+                UInt16 lsbAddress = (UInt16)((patternTable << 12) | (sprite << 4) | (pixelY + 8));
+
+                byte colorIndexMsb = ReadByte(msbAddress);
+                byte colorIndexLsb = ReadByte(lsbAddress);
+
+                for (byte pixelX = 0; pixelX <= 0x07; pixelX++)
+                {
+                    // Shift index by which pixel we are interested in, then mask it by 1 to get bit 0. MSB get shifted 1 and or'd with LSB.
+                    byte colorIndex = (byte)(((colorIndexMsb >> pixelX - 1) & 0x02) | ((colorIndexLsb >> pixelX) & 0x01));
+
+                    patternTexture.Data[pixelY * 8 + (7 - pixelX)] = _plainPalette[colorIndex];
+                }
+            }
         
+            return patternTexture;
+        }
+
         public void WriteOamByte(byte oamAddress, byte data)
         {
             this._oam[oamAddress] = data;

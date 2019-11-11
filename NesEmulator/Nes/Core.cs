@@ -22,7 +22,7 @@ namespace TestPGE.Nes
         public static readonly long NTSC_FRAME_CYCLES = 29780;
         public static readonly long NTSC_V_BLANK_CYCLES = 2273;
 
-        public Core(int width, int height, int px, int py) : base(width, height + 128 / py, px, py) { }
+        public Core(int width, int height, int px, int py) : base(width, height, px, py) { }
 
         private Ram _ram;
         private NameTableRam _vram;
@@ -109,8 +109,10 @@ namespace TestPGE.Nes
 
             printThread.Start();
 
-            //CreateSubDisplay(32 * 8, 16 * 8, "Pattern Table");
-
+            CreateSubDisplay(32, 1, 16, 16, "Palette Table");
+            CreateSubDisplay(32, 16, 3, 3, "Pattern Table");
+            CreateSubDisplay(64, 60, 8, 8, "Name Table");
+            
             return true;
         }
 
@@ -163,7 +165,6 @@ namespace TestPGE.Nes
                 frames = 0;
             }
 
-                DrawPalettes();
             frames++;
 
             return true;
@@ -171,28 +172,22 @@ namespace TestPGE.Nes
 
         private void DrawPalettes()
         {
-            SimpleTexture bgTex = new SimpleTexture(4, 4);
+            SimpleTexture bgTex = new SimpleTexture(1, 1);
             Color bgColor = BaseColors.Palette[_ppuBus.Read(0x3F00) & 0x3F];
 
-            for (int i = 0; i < 16; i++)
-                bgTex.Data[i] = bgColor;
+            bgTex.Data[0] = bgColor;
 
-            Draw(0, 256, bgTex);
+            Draw(0, 0, bgTex, "Palette Table");
 
             for (int i = 0; i < 8; i++)
             {
-                SimpleTexture palTex = new SimpleTexture(12, 4);
+                SimpleTexture palTex = new SimpleTexture(3, 1);
 
-                Color[] palette = new Color[] {
-                    BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 1)) & 0x3F],
-                    BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F],
-                    BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F]
-                };
+                palTex.Data[0] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 1)) & 0x3F];
+                palTex.Data[1] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F];
+                palTex.Data[2] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F];
 
-                for (int j = 0; j < 48; j++)
-                    palTex.Data[j] = palette[j % 12 / 4];
-
-                Draw(i * 12 + i * 5 + 12, 266, palTex);
+                Draw(i * 6 + 3, 0, palTex, "Palette Table");
             }
         }
 
@@ -202,9 +197,11 @@ namespace TestPGE.Nes
             {
                 try
                 {
+                    //DrawPalettes();
                     //PrintState();
                     //PrintPPUData();
                     //PrintPatternTables();
+                    PrintNameTables();
                 }
                 catch (NoGraphicsException)
                 {
@@ -221,10 +218,34 @@ namespace TestPGE.Nes
                 {
                     for (byte y = 0; y <= 0x0F; y++)
                     {
-                        Draw(x * 2 + p * 32, y * 2 + 256, _ppu.PrintPattern(p, (byte)((x << 4) + y), 8), 0);
+                        Draw(x + p * 16, y, _ppu.PrintPattern(p, (byte)((x << 4) + y)), "Pattern Table");
                     }
                 }
             }
+        }
+
+        private void PrintNameTables()
+        {
+            SimpleTexture nameTable = new SimpleTexture(64 * 8, 60 * 8);
+            int idx = 0;
+
+            for (byte px = 0; px <= 0x01; px++)
+            {
+                for (byte py = 0; py <= 0x01; py++)
+                { 
+                    for (byte x = 0; x < 32; x++)
+                    {
+                        for (byte y = 0; y < 30; y++)
+                        {
+                            SimpleTexture tileTexture = _ppu.PrintTile((byte)(px * 2 + py), x, y);
+                            nameTable.Append(idx, tileTexture);
+                            idx += tileTexture.Data.Length;
+                        }
+                    }
+                }
+            }
+
+            Draw(0, 0, nameTable, "Name Table");
         }
 
         private void PrintPPUData()

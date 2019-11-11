@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -10,15 +11,16 @@ namespace TestPGE
 {
     public class SimpleTexture
     {
-        public Color[] Data { get; private set; }
+        public Microsoft.Xna.Framework.Color[] Data { get; private set; }
         public int Width { get; private set; }
         public int Height { get; private set; }
 
-        public SimpleTexture(int width, int height) : this(new Color[width * height], width, height) { }
+        public SimpleTexture(int width, int height) : this(new Microsoft.Xna.Framework.Color[width * height], width, height) { }
 
         private Texture2D _generatedTexture = null;
+        private Bitmap _generatedImage = null;
 
-        public SimpleTexture(Color[] data, int width, int height)
+        public SimpleTexture(Microsoft.Xna.Framework.Color[] data, int width, int height)
         {
             Data = data;
             Width = width;
@@ -41,6 +43,24 @@ namespace TestPGE
             _generatedTexture.SetData(data);
 
             return _generatedTexture;
+        }
+
+        public Bitmap ToBitMap()
+        {
+            if (_generatedImage == null)
+                _generatedImage = new Bitmap(Width, Height);
+
+            UInt32[] data = new UInt32[Data.Length];
+
+            for (int i = 0; i < Data.Length; i++)
+                _generatedImage.SetPixel(i % Width, i / Width, System.Drawing.Color.FromArgb(Data[i].A, Data[i].R, Data[i].G, Data[i].B));
+
+            return _generatedImage;
+        }
+
+        public void Append(int idx, SimpleTexture simpleTexture)
+        {
+            Array.Copy(simpleTexture.Data, 0, Data, idx, simpleTexture.Data.Length);
         }
     }
 }

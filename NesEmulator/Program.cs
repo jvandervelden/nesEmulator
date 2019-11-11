@@ -19,7 +19,7 @@ namespace TestPGE
         {
             //Application.EnableVisualStyles();
             //Application.SetCompatibleTextRenderingDefault(false);
-            td = new Core(256, 244, 3, 3);
+            td = new Core(256, 240, 3, 3);
             td.Run();
             
             //Application.Run();
