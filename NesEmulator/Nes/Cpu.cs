@@ -177,13 +177,8 @@ namespace TestPGE.Nes
 
             if (RemainingInstructionCycles == 0)
             {
-                if (ProgramCounter == 0xE594)
-                {
-                    int breakHere = 0;
-                }
-
                 byte nextOpcode = Bus.Read(ProgramCounter);
-
+                                
                 ProgramCounter++;
 
                 Instruction = InstructionSet.InstuctionsByOpcode[nextOpcode];

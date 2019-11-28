@@ -58,9 +58,10 @@ namespace TestPGE
             return _generatedImage;
         }
 
-        public void Append(int idx, SimpleTexture simpleTexture)
+        public void Combine(int x, int y, SimpleTexture simpleTexture)
         {
-            Array.Copy(simpleTexture.Data, 0, Data, idx, simpleTexture.Data.Length);
+            for (int yIdx = 0; yIdx < simpleTexture.Height; yIdx++)
+                Array.Copy(simpleTexture.Data, yIdx * simpleTexture.Width, Data, x + y * Height, simpleTexture.Width);
         }
     }
 }

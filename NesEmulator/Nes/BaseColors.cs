@@ -9,6 +9,11 @@ namespace TestPGE.Nes
 {
     public static class BaseColors
     {
+        public static Color GetColor(int colorIndex, int rEmp, int gEmp, int bEmp)
+        {
+            return new Color(Palette[colorIndex].R + rEmp, Palette[colorIndex].G + gEmp, Palette[colorIndex].B + bEmp, Palette[colorIndex].A);
+        }
+
         public static readonly Color[] Palette = new Color[] {
             new Color(84, 84, 84),
             new Color(0, 30, 116),

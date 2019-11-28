@@ -3,10 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using TestPGE.Nes.Memory;
 
 namespace TestPGE.Nes.Mapper
 {
-    public class Mapper001 : IMapper
+    public class Mapper001 : IMapper, IDisposable
     {
         public const byte SHIFT_REGISTER_RESET_STATE = 0x10;
         public const byte CONTROL_REGISTER_RESET_STATE = 0x0C;
@@ -20,18 +21,19 @@ namespace TestPGE.Nes.Mapper
 
         private byte[] _programRomData;
         private byte[] _characterRomData;
-        private byte[] _programRamData;
+        private BatteryRam _programRamData;
 
         public uint NameTableSize { get; private set; } = 0;
 
-        public Mapper001(INesHeader nesHeader, byte[] programRomData, byte[] characterRomData)
+        public Mapper001(INesHeader nesHeader, byte[] programRomData, byte[] characterRomData, string romFilePath)
         {
             _nesHeader = nesHeader;
             _programRomData = programRomData;
             _characterRomData = characterRomData;
 
             // If volitile memory then 8Kb present
-            _programRamData = new byte[nesHeader.HasNonVolMemory ? 0x2000 : 0];
+            if (nesHeader.HasNonVolMemory)
+                _programRamData = new BatteryRam(0x2000, romFilePath);
 
             // 128kb potential ram if no rom is present
             if (characterRomData.Length == 0)
@@ -75,7 +77,7 @@ namespace TestPGE.Nes.Mapper
         public byte PrgRomRead(UInt16 cpuAddress)
         {
             if (cpuAddress >= 0x6000 && cpuAddress <= 0x7FFF)
-                return _programRamData[cpuAddress & 0x1FFF];
+                return _programRamData.ReadByte(cpuAddress);
 
             long address = 0;
 
@@ -195,7 +197,7 @@ namespace TestPGE.Nes.Mapper
             else
             {
                 // Ram address is $6000 - $7FFF if enabled. Strip off the top 3 bits.
-                _programRamData[(uint)(cpuAddress & 0x1FFF)] = cpuData;
+                _programRamData?.WriteByte(cpuAddress, cpuData);
             }
         }
 
@@ -230,6 +232,11 @@ namespace TestPGE.Nes.Mapper
                 case 0x03:
                     PrgRomBankRegister = ShiftRegister; break;
             }
+        }
+
+        public void Dispose()
+        {
+            _programRamData?.Dispose();
         }
     }
 }

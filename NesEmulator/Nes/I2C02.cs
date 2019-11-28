@@ -28,5 +28,12 @@ namespace TestPGE.Nes
         bool BackgroundRenderEnabled { get; }
 
         long RemainingDotsInFrame { get; }
+
+        byte[] Registers { get; }
+        UInt16 PpuAddress { get; }
+        UInt16 TempRegister { get; }
+        UInt16 YSpriteLine { get; }
+        byte ScrollYPixel { get; }
+        byte ScrollXPixel { get; }
     }
 }

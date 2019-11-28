@@ -9,7 +9,7 @@ namespace TestPGE.Nes.Mapper
     public class Mapper002 : IMapper
     {
         private INesHeader _nesHeader;
-        private byte _prgRomBankRegister = 0x00;
+        private uint _prgRomBankRegister = 0x00000000;
 
         private byte[] _programRomData;
         private byte[] _characterRomData;
@@ -45,26 +45,27 @@ namespace TestPGE.Nes.Mapper
         /// <summary>
         /// Lock last 16k to $C000 and switchs $8000 with program bank register.
         /// 
-        /// When address > $BFFF
-        ///   xx xxyy yyyy yyyy yyyy
-        ///   
-        ///   x - Bottom 4 bits of program bank register .xxxx
-        ///   y - Bottom 14 bits of cpu address ..yy yyyy yyyy yyyy
+        /// Address: x xxyy yyyy yyyy yyyy
         /// 
-        /// When address <= $BFFF
-        ///   00 00yy yyyy yyyy yyyy
+        /// When address bit 4 is 0
         ///   
-        ///   y - Bottom 14 bits of cpu address ..yy yyyy yyyy yyyy
+        ///   x - program bank register         ...x xx.. .... .... ....
+        ///   y - Bottom 14 bits of cpu address .... ..yy yyyy yyyy yyyy
         /// 
+        /// When address bit 4 is 1
+        /// 
+        ///   x - All 1s                        ...1 11.. .... .... ....
+        ///   y - Bottom 14 bits of cpu address .... ..yy yyyy yyyy yyyy
+        ///   
         /// </summary>
         /// <param name="cpuAddress">Cpu Address being accessed</param>
         /// <returns>Full program rom address</returns>
         private uint GetProgramAddress(UInt16 cpuAddress)
         {
             if ((cpuAddress & 0x4000) == 0x00)
-                return (uint)((cpuAddress & 0x3FFF) | (_prgRomBankRegister << 14));
+                return cpuAddress & 0x3FFFu | _prgRomBankRegister;
             
-            return (uint)((cpuAddress & 0x3FFF) | ((_nesHeader.PrgRomSize - 1) << 14));
+            return cpuAddress & 0x3FFFu | 0x1C000;
         }
 
         /// <summary>
@@ -75,7 +76,7 @@ namespace TestPGE.Nes.Mapper
         /// <returns>The address into Non Volitile Memory, null if outside Ram bounds.</returns>
         public void PrgRomWrite(UInt16 cpuAddress, byte cpuData)
         {
-            _prgRomBankRegister = (byte)(cpuData & (_nesHeader.PrgRomSize - 1));
+            _prgRomBankRegister = (cpuData & 0x0Fu) << 14;
         }
     }
 }

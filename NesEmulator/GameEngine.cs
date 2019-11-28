@@ -46,9 +46,7 @@ namespace TestPGE
         private int _width = 1;
         private int _height = 1;
 
-        protected Dictionary<Keys, bool> interestedKeys = new Dictionary<Keys, bool>();
-
-        protected readonly ConcurrentDictionary<Keys, KeyState> _keyState = new ConcurrentDictionary<Keys, KeyState>();
+        protected Dictionary<Keys, KeyState> interestedKeys = new Dictionary<Keys, KeyState>();
 
         protected Random _rand = new Random((int)DateTime.Now.Ticks + (int)(DateTime.Now.Ticks >> 32));
 
@@ -72,6 +70,7 @@ namespace TestPGE
 
             graphics.PreferredBackBufferWidth = width * pw;
             graphics.PreferredBackBufferHeight = height * ph;
+            IsFixedTimeStep = false;
         }
 
         protected override void Initialize()
@@ -91,18 +90,22 @@ namespace TestPGE
 
             foreach (Keys interestedKey in interestedKeys.Keys.ToArray())
             {
-                interestedKeys[interestedKey] = currentState.IsKeyDown(interestedKey);
+                if (currentState.IsKeyDown(interestedKey))
+                    interestedKeys[interestedKey] = KeyState.HELD;
+                else if (interestedKeys[interestedKey] != KeyState.OPEN)
+                    interestedKeys[interestedKey]++;
             }
+
+            OnUserUpdate(gameTime.ElapsedGameTime.Ticks);
 
             base.Update(gameTime);
         }
 
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Microsoft.Xna.Framework.Color.CornflowerBlue);
             spriteBatch.Begin();
 
-            OnUserUpdate(gameTime.ElapsedGameTime.Ticks);
+            DrawFrame(gameTime.ElapsedGameTime.Ticks);
 
             spriteBatch.End();
             base.Draw(gameTime);
@@ -110,8 +113,9 @@ namespace TestPGE
 
         protected override void OnExiting(object sender, EventArgs args)
         {
+            IsRunning = false;
+            Dispose();
             base.OnExiting(sender, args);
-            
         }
 
         public void Start()
@@ -124,7 +128,7 @@ namespace TestPGE
             Console.WindowHeight = Math.Min(68, Console.LargestWindowHeight);
             Console.SetBufferSize(Math.Max(Console.BufferWidth, 190), Math.Max(Console.BufferHeight, 67));
             Console.CursorVisible = false;
-
+            
             IsRunning = true;
 
             if (!OnUserCreate())
@@ -145,6 +149,15 @@ namespace TestPGE
             display.Show();
 
             return display;
+        }
+
+        protected void CloseSubDisplay(string displayId)
+        {
+            if (_subDisplay.ContainsKey(displayId))
+            {
+                _subDisplay[displayId].Display.Close();
+                _subDisplay.Remove(displayId);
+            }
         }
 
         protected void CreateSubDisplay(int width, int height, string displayId)
@@ -205,6 +218,8 @@ namespace TestPGE
         protected abstract bool OnUserCreate();
 
         protected abstract bool OnUserUpdate(long elapsedTicks);
+
+        protected abstract bool DrawFrame(long elapsedTicks);
 
         private SubDisplayInfo GetDisplay(string display)
         {

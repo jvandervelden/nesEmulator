@@ -58,20 +58,19 @@ namespace TestPGE.Nes
                 Loaded = false;
             }
 
-            public KeyValuePair<bool, byte> ColorIndexAtScreenDot(int dot)
+            public byte ColorIndexAtScreenDot(int dot)
             {
-                byte xIdx = (byte)(dot - X);
+                int xIdx = dot - X;
 
                 if (FlipHor)
-                    xIdx = (byte)(7 - xIdx);
+                    xIdx = 7 - xIdx;
 
-                byte colorIdx = (byte)((((HighPatternByte >> (7 - xIdx)) & 0x01) << 1) | 
-                ((LowPatternByte >> (7 - xIdx)) & 0x01));
+                int colorIdx = (((HighPatternByte >> (7 - xIdx)) & 0x01) << 1) | ((LowPatternByte >> (7 - xIdx)) & 0x01);
 
-                return new KeyValuePair<bool, byte>(true, colorIdx);
+                return (byte)colorIdx;
             }
 
-            public ScanlineSprite Load(DataBus ppuBus, byte patternTable, bool is8x16mode, int scanline)
+            public ScanlineSprite Load(DataBus ppuBus, UInt16 patternTable, bool is8x16mode, uint scanline)
             {
                 // 8x16 000j iiii iiis hsss
                 // 8x8  000p iiii iiii hsss
@@ -81,27 +80,26 @@ namespace TestPGE.Nes
                 // h - high/low byte of pattern
                 // s - scanline - y
 
-                byte yIdx = (byte)(scanline - Y);
+                uint yIdx = scanline - Y;
 
                 if (FlipVer)
-                    yIdx = (byte)((is8x16mode ? 15 : 7) - yIdx);
+                    yIdx = (is8x16mode ? 15u : 7u) - yIdx;
 
-                byte pattTable = patternTable;
+                UInt16 pattTable = patternTable;
                 byte pattIndex = PatternIndex;
 
                 if (is8x16mode)
                 {
                     // Set pattern table to lowest nibble of index and clear that bit
-                    patternTable = (byte)(PatternIndex & 0x01);
-                    PatternIndex = (byte)(PatternIndex & 0xFE);
+                    pattTable = (UInt16)((pattIndex & 0x01) << 12);
+                    pattIndex = (byte)(pattIndex & 0xFE);
                     // Move the 4th bit to the 5th
-                    yIdx = (byte)((yIdx & 0x07) | ((yIdx & 0x08) << 1));
+                    yIdx = (yIdx & 0x07) | ((yIdx & 0x08) << 1);
                 }
-                
-                UInt16 patternAddress = (UInt16)((patternTable << 12) | (PatternIndex << 4) | yIdx);
+
+                UInt16 patternAddress = (UInt16)(pattTable | (pattIndex << 4) | (byte)yIdx);
                 LowPatternByte = ppuBus.Read(patternAddress);
                 HighPatternByte = ppuBus.Read((UInt16)(patternAddress | 0x0008));
-               // }
 
                 Loaded = true;
                 return this;
@@ -130,20 +128,19 @@ namespace TestPGE.Nes
         public const byte SPRITE_OVERFLOW_BIT = 0x20;
         public const byte SPRITE_0_HIT_REGISTER_BIT = 0x40;
 
-        private byte[] _oam = new byte[256];
-        private byte[] _spriteBuffer = new byte[256];
+        public const byte RED_EMPHASIS_REGISTER_BIT = 0x20;
+        public const byte GREEN_EMPHASIS_REGISTER_BIT = 0x40;
+        public const byte BLUE_EMPHASIS_REGISTER_BIT = 0x80;
 
-        private ScanlineSprite[] _scanlineSprites = new ScanlineSprite[8] {
-            new ScanlineSprite(),
-            new ScanlineSprite(),
-            new ScanlineSprite(),
-            new ScanlineSprite(),
-            new ScanlineSprite(),
-            new ScanlineSprite(),
-            new ScanlineSprite(),
-            new ScanlineSprite()
-        };
-        private byte[] _registers = new byte[8];
+        public const int EMPHASIS_AMT = -64;
+
+        private byte[] _oam = new byte[256];
+        private byte[] _spriteBufferColor = new byte[256];
+        private byte[] _spriteBufferPriority = new byte[256];
+        private byte[] _spriteBufferPalette = new byte[256];
+        private byte[] _spriteBufferIndex = new byte[256];
+        
+        private readonly byte[] _registers = new byte[8];
         private int _currentDot = 0;
         private int _currentScanline = 1;
         private bool _oddFrame = false;
@@ -161,6 +158,10 @@ namespace TestPGE.Nes
         public bool SpriteRenderEnabled => (_registers[PPU_MASK_REGISTER] & SPRITE_RENDER_BIT) == SPRITE_RENDER_BIT;
         public bool ForcedBlanking => (_registers[PPU_MASK_REGISTER] & (SPRITE_RENDER_BIT | BACKGROUD_RENDER_BIT)) == 0x00;
         public bool InVBlank => (_registers[PPU_STATUS_REGISTER] & VBLANK_STATUS_REGISTER_BIT) == VBLANK_STATUS_REGISTER_BIT;
+
+        public bool EmphasiseRed => (_registers[PPU_MASK_REGISTER] & RED_EMPHASIS_REGISTER_BIT) == RED_EMPHASIS_REGISTER_BIT;
+        public bool EmphasiseGreen => (_registers[PPU_MASK_REGISTER] & GREEN_EMPHASIS_REGISTER_BIT) == GREEN_EMPHASIS_REGISTER_BIT;
+        public bool EmphasiseBlue => (_registers[PPU_MASK_REGISTER] & BLUE_EMPHASIS_REGISTER_BIT) == BLUE_EMPHASIS_REGISTER_BIT;
 
         public double FPS { get; private set; } = 0;
 
@@ -184,8 +185,29 @@ namespace TestPGE.Nes
         private byte _attrTableValue = 0x00;
         private byte _lowBgPatternValue = 0x00;
         private byte _highBgPatternValue = 0x00;
-        private byte _ySpriteLine = 0x00;
-        private byte _scrollXPixel = 0x00;
+        //private byte _ySpriteLine = 0x00;
+        public byte ScrollXPixel
+        {
+            get { return _scrollXPixel; }
+            private set {
+                _bgPatternScrollMask = (UInt16)(0x8000 >> value);
+                _bgLowPatternShiftIndex = (byte)(15 - value);
+                _bgHighPatternShiftIndex = (byte)(14 - value);
+                _scrollXPixel = value;
+            }
+        }
+
+        private byte _scrollXPixel;
+
+        private UInt16 _bgPatternScrollMask = 0x8000;
+        private byte _bgLowPatternShiftIndex = 0x00;
+        private byte _bgHighPatternShiftIndex = 0x00;
+
+        public byte[] Registers { get { return _registers; } }
+        public UInt16 PpuAddress { get { return _ppuAddress; } }
+        public UInt16 TempRegister { get { return _tempRegister; } }
+        public UInt16 YSpriteLine { get { return 0; } }
+        public byte ScrollYPixel { get { return (byte)(_tempRegister & 0x7000 >> 12); } }
 
         public void Clock()
         {
@@ -202,11 +224,11 @@ namespace TestPGE.Nes
                 _highBgPatternValueShiftRegister = 0x0000;
                 _paletteIndexShiftRegister = 0x00;
                                 
-                // Clear vblank and sprite overflow flags.
+                // Clear vblank, sprite overflow, and sprite 0 hit flags.
                 _registers[PPU_STATUS_REGISTER] = (byte)(_registers[PPU_STATUS_REGISTER] & ~(SPRITE_0_HIT_REGISTER_BIT | VBLANK_STATUS_REGISTER_BIT | SPRITE_OVERFLOW_BIT));
-                
             }
 
+            // If we are rendering somthing then do normal ppu fetching and processing.
             if (!InVBlank && !ForcedBlanking)
             {
                 if (_currentScanline < 240 && _currentDot == 0)
@@ -214,10 +236,12 @@ namespace TestPGE.Nes
                     UpdateScanlineSprites();
                 }
 
-                if (_currentScanline == 261 && _currentDot == 1)
+                if (_currentScanline == 261 && _currentDot >= 280 && _currentDot <= 304)
                 {
-                    _ppuAddress = (UInt16)((_tempRegister & 0x0FFF) + 0x2000);
-                    _ySpriteLine = (byte)((_tempRegister & 0x7000) >> 12);
+                    _ppuAddress = (UInt16)((_ppuAddress & 0x841F) | (_tempRegister & 0x7BE0));
+                    //_ppuAddress = _tempRegister;
+                    //_ppuAddress = (UInt16)((_tempRegister & 0x03FF & ((_registers[PPU_CONTROL_REGISTER] & 0x03) << 10)) | 0x2000);
+                    //_ySpriteLine = (byte)((_tempRegister & 0x7000) >> 12);
                 }
 
                 // Load first tile of next scanline
@@ -245,53 +269,97 @@ namespace TestPGE.Nes
                         // Reset to horizantal nametable and x course pos from temp register to reset line.
                         _ppuAddress |= (UInt16)(_tempRegister & 0x041f);
 
-                        if (_ySpriteLine <= 6)
-                            _ySpriteLine++;
+                        //if (_ySpriteLine <= 6)
+                        //  _ySpriteLine++;
+                        if ((_ppuAddress & 0x7000) != 0x7000)
+                            _ppuAddress += 0x1000;
                         else
                         {
                             PPUAddressIncrementY();
-                            _ySpriteLine = 0;
+                            _ppuAddress &= 0x0FFF;
                         }
                     }
                 }
+            }
 
-                if (_currentScanline < 240 && _currentDot < 256)
+            bool spriteRenderEnabled = SpriteRenderEnabled;
+            bool backgroundRenderEnabled = BackgroundRenderEnabled;
+
+            if (_currentDot < 8)
+            {
+                switch (_registers[PPU_MASK_REGISTER] & 0x06)
                 {
-                    byte colorToDraw = (byte)(((_highBgPatternValueShiftRegister & 0x8000) >> 14 - _scrollXPixel) | ((_lowBgPatternValueShiftRegister & 0x8000) >> 15 - _scrollXPixel));
-                    byte paletteToDraw = (byte)(_paletteIndexShiftRegister & 0x03);
-
-                    if (_spriteBuffer[_currentDot] != 0xFF)
-                    {
-                        ScanlineSprite scanlineSprite = _scanlineSprites[_spriteBuffer[_currentDot]];
-                        KeyValuePair<bool, byte> spritePixel = scanlineSprite.ColorIndexAtScreenDot(_currentDot);
-
-                        if (spritePixel.Key)
-                        {
-                            // If sprite 0 non transparent pixel overlaps a non transparent bg pixel flag sprite 0 hit.
-                            if (_spriteBuffer[_currentDot] == 0 && colorToDraw != 0 && spritePixel.Value != 0)
-                                _registers[PPU_STATUS_REGISTER] |= SPRITE_0_HIT_REGISTER_BIT;
-
-                            // Draw sprite pixel if foreground priority and not transparent or the background pixel is transparent.
-                            if ((scanlineSprite.Priority == 0x00 && spritePixel.Value != 0x00) ||
-                                (colorToDraw == 0x00 && scanlineSprite.Priority == 0x01))
-                            {
-                                colorToDraw = spritePixel.Value;
-                                paletteToDraw = (byte)(scanlineSprite.Palette + 4);
-                            }
-                        }
-                    }
-
-                    UInt16 paletteAddress = colorToDraw == 0 ? (UInt16)0x3F00 : (UInt16)(0x3F00 + paletteToDraw * 4 + colorToDraw);
-
-                    _backgroundTexture.Data[_bgDataIndex] = BaseColors.Palette[Bus.Read(paletteAddress)];
-                    _bgDataIndex++;
-
-                    _highBgPatternValueShiftRegister = (UInt16)(_highBgPatternValueShiftRegister << 1);
-                    _lowBgPatternValueShiftRegister = (UInt16)(_lowBgPatternValueShiftRegister << 1);
-
-                    if ((_currentDot & 0x07) == 0x07)
-                        _paletteIndexShiftRegister = (byte)(_paletteIndexShiftRegister >> 2);
+                    // Hide Both
+                    case 0:
+                        spriteRenderEnabled = false;
+                        backgroundRenderEnabled = false;
+                        break;
+                    // Hide Sprites
+                    case 2:
+                        spriteRenderEnabled = false;
+                        break;
+                    // Hide Background
+                    case 4:
+                        backgroundRenderEnabled = false;
+                        break;
+                        // Show Both
+                        // case 6:
+                        // break;
                 }
+            }
+
+            if (_currentScanline < 240 && _currentDot < 256)
+            {
+                byte colorToDraw = (byte)(((_highBgPatternValueShiftRegister & _bgPatternScrollMask) >> _bgHighPatternShiftIndex) | 
+                    ((_lowBgPatternValueShiftRegister & _bgPatternScrollMask) >> _bgLowPatternShiftIndex));
+                byte paletteToDraw = (byte)(_paletteIndexShiftRegister & 0x03);
+                bool isSpritePixel = false;
+
+                // If pixel is from sprite 1(0), and pixel is non transparent color, and bg pixel is non transparent color, we flag sprite 0 hit.
+                if (spriteRenderEnabled && _spriteBufferIndex[_currentDot] == 1 && _spriteBufferColor[_currentDot] != 0 && colorToDraw != 0)
+                    _registers[PPU_STATUS_REGISTER] |= SPRITE_0_HIT_REGISTER_BIT;
+
+                // If rendering sprites and current pixel has sprite data
+                if (spriteRenderEnabled &&
+                    _spriteBufferIndex[_currentDot] != 0 &&
+
+                    // Sprite pixel is not transparent and, sprite has priority or bg color is transparent
+                    _spriteBufferColor[_currentDot] != 0x00 && 
+                    (_spriteBufferPriority[_currentDot] == 0x00 || colorToDraw == 0x00))
+                {
+                    colorToDraw = _spriteBufferColor[_currentDot];
+                    paletteToDraw = (byte)(_spriteBufferPalette[_currentDot] + 4);
+                    isSpritePixel = true;
+                }
+
+                // By default we render default background color
+                UInt16 paletteAddress = 0x3F00;
+
+                // If background render is disabled and we aren't rendering a sprite, check if ppuaddress is a palette address and use it.
+                if (!isSpritePixel && !backgroundRenderEnabled)
+                {
+                    if ((_ppuAddress & 0x3F00) == 0x3F00)
+                        paletteAddress = _ppuAddress;
+                }
+                else if (colorToDraw != 0)
+                    paletteAddress = (UInt16)(0x3F00 + paletteToDraw * 4 + colorToDraw);
+
+                //Color pixelColor = BaseColors.GetColor(
+                //    Bus.Read(paletteAddress), 
+                //    EmphasiseRed ? EMPHASIS_AMT : 0, 
+                //    EmphasiseGreen ? EMPHASIS_AMT : 0, 
+                //    EmphasiseBlue ? EMPHASIS_AMT : 0);
+
+                Color pixelColor = BaseColors.Palette[Bus.Read(paletteAddress)];
+
+                _backgroundTexture.Data[_bgDataIndex] = pixelColor;
+                _bgDataIndex++;
+
+                _highBgPatternValueShiftRegister = (UInt16)(_highBgPatternValueShiftRegister << 1);
+                _lowBgPatternValueShiftRegister = (UInt16)(_lowBgPatternValueShiftRegister << 1);
+
+                if ((_currentDot + _scrollXPixel & 0x07) == 0x07)
+                    _paletteIndexShiftRegister = (byte)(_paletteIndexShiftRegister >> 2);
             }
 
             MoveElectronGun();
@@ -299,53 +367,53 @@ namespace TestPGE.Nes
 
         private void UpdateScanlineSprites()
         {
-            byte spritePatternTable = (byte)((_registers[PPU_MASK_REGISTER] & 0x04) >> 3);
+            UInt16 spritePatternTable = (byte)((_registers[PPU_CONTROL_REGISTER] & 0x08) << 9);
             bool is8x16Sprites = (_registers[PPU_CONTROL_REGISTER] & 0x20) == 0x20;
-            int spriteOam = 0;
             byte spriteCount = 0;
-            int scanline = _currentScanline - 1;
+            uint scanline = (uint)(_currentScanline - 1);
 
-            foreach (ScanlineSprite scanlineSprite in _scanlineSprites) scanlineSprite.Reset();
-            for (int i = 0; i < _spriteBuffer.Length; i++) _spriteBuffer[i] = 0xFF;
+            // Reset spritebuffer and index to 0
+            _spriteBufferColor = new byte[256];
+            _spriteBufferIndex = new byte[256];
 
-            for (;spriteOam < 64; spriteOam++)
+            for (byte sprite = 0; sprite < 64; sprite++)
             {
-                byte spriteY = _oam[spriteOam * 4 + 0];
-                bool inScanline = scanline - spriteY < (is8x16Sprites ? 16 : 8) && scanline - spriteY >= 0;
+                byte spriteY = _oam[sprite * 4 + 0];
+                byte spriteX = _oam[sprite * 4 + 3];
+                bool inScanline = scanline - spriteY < (is8x16Sprites ? 16 : 8) && scanline - spriteY >= 0 && spriteX < 249;
 
-                if (spriteCount < 8) {
-                    if (inScanline)
+                if (spriteCount < 8 && inScanline) {
+                    ScanlineSprite scanlineSprite = new ScanlineSprite()
                     {
-                        _scanlineSprites[spriteCount].Y = _oam[spriteOam * 4 + 0];
-                        _scanlineSprites[spriteCount].PatternIndex = _oam[spriteOam * 4 + 1];
-                        _scanlineSprites[spriteCount].Attributes = _oam[spriteOam * 4 + 2];
-                        _scanlineSprites[spriteCount].X = _oam[spriteOam * 4 + 3];
-                        _scanlineSprites[spriteCount].Load(Bus, spritePatternTable, is8x16Sprites, scanline);
+                        Y = spriteY,
+                        PatternIndex = _oam[sprite * 4 + 1],
+                        Attributes = _oam[sprite * 4 + 2],
+                        X = spriteX
+                    };
 
-                        spriteCount++;
+                    scanlineSprite.Load(Bus, spritePatternTable, is8x16Sprites, scanline);
+
+                    for (int p = 0; p < 8; p++)
+                    {
+                        int dot = scanlineSprite.X + p;
+
+                        if (_spriteBufferColor[dot] == 0x00)
+                        {
+                            _spriteBufferColor[dot] = scanlineSprite.ColorIndexAtScreenDot(dot);
+                            _spriteBufferPriority[dot] = scanlineSprite.Priority;
+                            _spriteBufferPalette[dot] = scanlineSprite.Palette;
+                            // Sprite index is 1 based so we can clear the array quickly (via array creation), instead of looping through the 256 elements every scanline.
+                            _spriteBufferIndex[dot] = (byte)(sprite + 1);
+                        }
                     }
+
+                    spriteCount++;
                 }
                 else if (inScanline)
                 {
+                    // Hit max sprites, flag it and break out of sprite evaluation
                     _registers[PPU_STATUS_REGISTER] |= SPRITE_OVERFLOW_BIT;
                     break;
-                }
-            }
-            
-            for (int i = spriteCount - 1; i >= 0; i--)
-            {
-                if (_scanlineSprites[i].Loaded && _scanlineSprites[i].X <= 0xF7)
-                {
-                    int xPos = _scanlineSprites[i].X;
-                    byte spriteIdx = (byte)i;
-                    _spriteBuffer[xPos + 0] = spriteIdx;
-                    _spriteBuffer[xPos + 1] = spriteIdx;
-                    _spriteBuffer[xPos + 2] = spriteIdx;
-                    _spriteBuffer[xPos + 3] = spriteIdx;
-                    _spriteBuffer[xPos + 4] = spriteIdx;
-                    _spriteBuffer[xPos + 5] = spriteIdx;
-                    _spriteBuffer[xPos + 6] = spriteIdx;
-                    _spriteBuffer[xPos + 7] = spriteIdx;
                 }
             }
         }
@@ -368,7 +436,7 @@ namespace TestPGE.Nes
         {
             if ((_ppuAddress & 0x001f) == 31)
             {
-                _ppuAddress &= 0x2FE0;
+                _ppuAddress &= 0xFFE0;
                 _ppuAddress ^= 0x0400;
             }
             else
@@ -378,10 +446,10 @@ namespace TestPGE.Nes
         private void LoadBackgroundIntoRegisters(bool top)
         {
             // Read the tile information
-            _ppuBuffer = Bus.Read(_ppuAddress);
+            _ppuBuffer = Bus.Read((UInt16)(_ppuAddress & 0x0FFF | 0x2000));
 
             // Read the bg area information
-            UInt16 attrAreaLocation = (UInt16)((_ppuAddress & 0x2C00) | 0x03C0 | ((_ppuAddress & 0x380) >> 4) | ((_ppuAddress & 0x001C) >> 2));
+            UInt16 attrAreaLocation = (UInt16)((_ppuAddress & 0x0C00) | 0x23C0 | ((_ppuAddress & 0x0380) >> 4) | ((_ppuAddress & 0x001C) >> 2));
             byte attributeAreaValue = Bus.Read(attrAreaLocation);
 
             // Find which 2 bits of the area byte we are on and get the palette number.
@@ -401,13 +469,14 @@ namespace TestPGE.Nes
                     break;
             }
 
+            byte yPixel = (byte)((_ppuAddress & 0x7000) >> 12);
             // load the background pattern top and bottom layers
-            UInt16 backgroundPatternTableAddress = (UInt16)(((_ppuBuffer << 4) + _ySpriteLine) | ((_registers[PPU_CONTROL_REGISTER] & 0x10) << 8));
+            UInt16 backgroundPatternTableAddress = (UInt16)(((_ppuBuffer << 4) + yPixel) | ((_registers[PPU_CONTROL_REGISTER] & 0x10) << 8));
 
             _lowBgPatternValue = Bus.Read(backgroundPatternTableAddress);
             _highBgPatternValue = Bus.Read((UInt16)(backgroundPatternTableAddress + 8));
 
-            // Put the pattern informaiton into the shift registers at the top or bottom of the 16 bit value.
+            // Put the pattern information into the shift registers at the top or bottom of the 16 bit value.
             if (top)
             {
                 _lowBgPatternValueShiftRegister = (UInt16)(_lowBgPatternValue << 8);
@@ -484,6 +553,13 @@ namespace TestPGE.Nes
 
                     break;
                 case PPU_MASK_REGISTER:
+                    bool forcedBlanking = ForcedBlanking;
+
+                    _registers[registerNumber] = data;
+
+                    if (!ForcedBlanking && _currentScanline < 240 && forcedBlanking != ForcedBlanking)
+                        _ppuAddress = (UInt16)((_ppuAddress & 0x841F) | (_tempRegister & 0x7BE0));
+
                     break;
                 case PPU_STATUS_REGISTER:
                     // Don't update the status register
@@ -496,15 +572,14 @@ namespace TestPGE.Nes
                     if (!_writeLatch)
                     {
                         _writeLatch = true;
-                        _scrollXPixel = (byte)(data & 0x07);
-                        _tempRegister = (UInt16)(_tempRegister & 0xFFE0 | ((data & 0xF6) >> 3));
+                        ScrollXPixel = (byte)(data & 0x07);
+                        _tempRegister = (UInt16)(_tempRegister & 0xFFE0 | ((data & 0xF8) >> 3));
                     }
                     else
                     {
                         _writeLatch = false;
-                        _tempRegister = (UInt16)(_tempRegister & 0xF3FF | ((data & 0xC0) << 2));
-                        _tempRegister = (UInt16)(_tempRegister & 0xFF1F | ((data & 0x38) << 2));
-                        _tempRegister = (UInt16)(_tempRegister & 0x0FFF | ((data & 0x07) << 12));
+                        _tempRegister = (UInt16)(_tempRegister & 0xFC1F | ((data & 0xF8) << 2));
+                        _tempRegister = (UInt16)(_tempRegister & 0x8FFF | ((data & 0x07) << 12));
                     }
                     break;
                 case PPU_ADDRESS_REGISTER:
@@ -578,10 +653,9 @@ namespace TestPGE.Nes
 
         private void IncrementPPUAddress()
         {
+            // Increment and make sure we don't go past 3FFF
             _ppuAddress += (UInt16)((_registers[PPU_CONTROL_REGISTER] & 0x04) == 0x04 ? 32 : 1);
-
-            if (_ppuAddress > 0x3FFF)
-                _ppuAddress -= 0x2000;
+            _ppuAddress &= 0x3FFF;
         }
 
         public SimpleTexture RenderBackground()

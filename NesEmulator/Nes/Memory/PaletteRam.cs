@@ -14,19 +14,20 @@ namespace TestPGE.Nes.Memory
         private uint GetPaletteRamAddress(uint address)
         {
             return
-                (address & 0x0003) == 0x0000
-                ? 0x3F00
-                : address;
+                // If 3F - 10/14/18/1C then mirror down to 3F - 00/04/08/0C respectively
+                (address & 0x0013) == 0x0010
+                ? address & 0x000F
+                : address & 0x001F;
         }
 
         public override byte ReadByte(uint address)
         {
-            return base.ReadByte(GetPaletteRamAddress(address) & 0x001F);
+            return base.ReadByte(GetPaletteRamAddress(address));
         }
 
         public override void WriteByte(uint address, byte data)
         {
-            base.WriteByte(GetPaletteRamAddress(address) & 0x001F, data);
+            base.WriteByte(GetPaletteRamAddress(address), data);
         }
     }
 }

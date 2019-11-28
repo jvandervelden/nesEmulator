@@ -9,7 +9,7 @@ using TestPGE.Nes.Mapper;
 
 namespace TestPGE.Nes
 { 
-    public class Cartridge : IBusInterface
+    public class Cartridge : IBusInterface, IDisposable
     {
         public const int TRAINER_SIZE = 512; // 512B
         public const int PROGRAM_ROM_BANK_SIZE = 0x4000; // 16KB
@@ -64,7 +64,7 @@ namespace TestPGE.Nes
                 }
             }
 
-            Mapper = CreateMapper(NesHeader, programRomData, characterRomData);
+            Mapper = CreateMapper(NesHeader, programRomData, characterRomData, fileName);
         }
 
         public void Insert(DataBus cpuBus, DataBus ppuBus)
@@ -79,14 +79,14 @@ namespace TestPGE.Nes
                 ppuBus.ConnectDevice(this, 0x2000, 0x2000 + Mapper.NameTableSize);
         }
 
-        private IMapper CreateMapper(INesHeader nesHeader, byte[] programRomData, byte[] characterRomData)
+        private IMapper CreateMapper(INesHeader nesHeader, byte[] programRomData, byte[] characterRomData, string romFilePath)
         {
             switch(nesHeader.Mapper)
             {
                 case 0x00:
                     return new Mapper000(nesHeader, programRomData, characterRomData);
                 case 0x01:
-                    return new Mapper001(nesHeader, programRomData, characterRomData);
+                    return new Mapper001(nesHeader, programRomData, characterRomData, romFilePath);
                 case 0x02:
                     return new Mapper002(nesHeader, programRomData, characterRomData);
             }
@@ -161,6 +161,12 @@ namespace TestPGE.Nes
             }
             else
                 throw new IndexOutOfRangeException("Trying to access address outside PRG and CHR rom range.");
+        }
+
+        public void Dispose()
+        {
+            if (Mapper is IDisposable)
+                ((IDisposable)Mapper).Dispose();
         }
     }
 }

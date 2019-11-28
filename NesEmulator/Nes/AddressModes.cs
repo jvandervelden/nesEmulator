@@ -12,6 +12,36 @@ namespace TestPGE.Nes
 {
     public static class AddressModes
     {
+        public static string GetAddressInfo(Func<Cpu, byte> addressMode, Cpu cpu)
+        {
+            if (addressMode == IMP)
+                return "\t\t\t";
+            if (addressMode == IMM)
+                return string.Format("#${0:X2}\t\t\t", cpu.Fetched);
+            if (addressMode == ZP0)
+                return string.Format("${0:X2}\t\t\t", cpu.Address);
+            if (addressMode == ZPX)
+                return string.Format("${0:X2},x -> ${1:X4}\t", cpu.Address - cpu.X, cpu.Address);
+            if (addressMode == ZPY)
+                return string.Format("${0:X2},y -> ${1:X4}\t", cpu.Address - cpu.Y, cpu.Address);
+            if (addressMode == REL)
+                return string.Format("{0} -> ${1:X4}\t\t", cpu.BranchRelativeAddress, cpu.ProgramCounter + cpu.BranchRelativeAddress);
+            if (addressMode == ABS)
+                return string.Format("${0:X4}\t\t", cpu.Address);
+            if (addressMode == ABX)
+                return string.Format("${0:X4},x -> ${1:X4}\t", cpu.Address - cpu.X, cpu.Address);
+            if (addressMode == ABY)
+                return string.Format("${0:X4},y -> ${1:X4}\t", cpu.Address - cpu.Y, cpu.Address);
+            if (addressMode == IND)
+                return string.Format("(${0:X4}) -> ${1:X4}\t", cpu.Address, cpu.Fetched);
+            if (addressMode == IZX)
+                return string.Format("($ZP0,x) -> ${0:X4}\t", cpu.Address);
+            if (addressMode == IZY)
+                return string.Format("($ZP0),y -> ${0:X4}\t", cpu.Address);
+
+            return "";
+        }
+
         public static byte IMP(Cpu cpu)
         {
             cpu.ImpliedAddress = true;

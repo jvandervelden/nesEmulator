@@ -121,6 +121,7 @@
     <Compile Include="Nes\Mapper\IMapper.cs" />
     <Compile Include="Nes\Mapper\Mapper002.cs" />
     <Compile Include="Nes\Mapper\Mapper001.cs" />
+    <Compile Include="Nes\Memory\BatteryRam.cs" />
     <Compile Include="Nes\Memory\MirroredRam.cs" />
     <Compile Include="Nes\Memory\NameTableRam.cs" />
     <Compile Include="Nes\Memory\PaletteRam.cs" />
@@ -145,7 +146,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <None Include="packages.config" />
+    <None Include="packages.config">
+      <SubType>Designer</SubType>
+    </None>
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>

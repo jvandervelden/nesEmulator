@@ -13,7 +13,7 @@ namespace TestPGE.Nes
 {
     public class Core : GameEngine
     {
-        public static readonly double TARGET_CLOCK_FREQ = 1789772;
+        public static readonly double TARGET_CLOCK_FREQ = 21477272;
         public static readonly double TICKS_BETWEN_CYCLES = TARGET_CLOCK_FREQ / TimeSpan.TicksPerMillisecond;
         public static UInt16 NES_RAM_SIZE = 0x0800; // 2kb of Ram
         public static UInt16 CPU_ADDRESSABLE_RANGE = 0xFFFF; // 16 bit cpu address bus.
@@ -36,6 +36,10 @@ namespace TestPGE.Nes
         private I2A03 _cpuExtended;
         private IOamDma _oamDma;
         private Controller _controller;
+
+        private bool _drawPalettes = false;
+        private bool _drawNameTables = false;
+        private bool _drawPatternTables = false;
 
         private Cartridge _cartridge;
 
@@ -69,8 +73,9 @@ namespace TestPGE.Nes
             _cartridge = new Cartridge();
             //_cartridge.Load(@"D:\tmp\full_palette.nes");
             //_cartridge.Load(@"D:\tmp\nestest.nes");
-            _cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
-            //_cartridge.Load(@"D:\tmp\Super Mario Bros. (World).nes");
+            //_cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
+            _cartridge.Load(@"D:\tmp\Super Mario Bros. (World).nes");
+            //_cartridge.Load(@"D:\tmp\Super Mario Bros. 3 (USA).nes");
             //_cartridge.Load(@"D:\tmp\Clu Clu Land (World).nes");
             //_cartridge.Load(@"D:\tmp\DuckTales (USA).nes");
             //_cartridge.Load(@"D:\tmp\Chip n Dale - Rescue Rangers (USA).nes");
@@ -89,14 +94,18 @@ namespace TestPGE.Nes
             }
 
             // Setup Input
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Up, false);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Down, false);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Left, false);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Right, false);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Z, false);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.X, false);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.RightShift, false);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Enter, false);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Up, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Down, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Left, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Right, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Z, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.X, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.RightShift, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Enter, KeyState.OPEN);
+
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.P, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.N, KeyState.OPEN);
+            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.T, KeyState.OPEN);
 
             _controller = new Controller();
 
@@ -109,11 +118,13 @@ namespace TestPGE.Nes
 
             printThread.Start();
 
-            CreateSubDisplay(32, 1, 16, 16, "Palette Table");
-            CreateSubDisplay(32, 16, 3, 3, "Pattern Table");
-            CreateSubDisplay(64, 60, 8, 8, "Name Table");
-            
             return true;
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            _cartridge.Dispose();
+            base.Dispose(disposing);
         }
 
         long _currentCycleTimeTicks = 0;
@@ -123,20 +134,27 @@ namespace TestPGE.Nes
 
         protected void UpdateControllerState()
         {
-            _controller.SetButton(Controller.ControllerButtons.UP, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Up]);
-            _controller.SetButton(Controller.ControllerButtons.DOWN, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Down]);
-            _controller.SetButton(Controller.ControllerButtons.LEFT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Left]);
-            _controller.SetButton(Controller.ControllerButtons.RIGHT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Right]);
-            _controller.SetButton(Controller.ControllerButtons.B, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Z]);
-            _controller.SetButton(Controller.ControllerButtons.A, interestedKeys[Microsoft.Xna.Framework.Input.Keys.X]);
-            _controller.SetButton(Controller.ControllerButtons.SELECT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.RightShift]);
-            _controller.SetButton(Controller.ControllerButtons.START, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Enter]);
+            _controller.SetButton(Controller.ControllerButtons.UP, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Up] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.DOWN, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Down] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.LEFT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Left] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.RIGHT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Right] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.B, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Z] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.A, interestedKeys[Microsoft.Xna.Framework.Input.Keys.X] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.SELECT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.RightShift] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.START, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Enter] == KeyState.HELD);
         }
+
+        protected override bool DrawFrame(long elapsedTicks)
+        {
+            Draw(0, 0, _ppu.RenderBackground());
+            return true;
+        }
+
 
         protected override bool OnUserUpdate(long elapsedTicks)
         {
             UpdateControllerState();
-                        
+
             int cpuWaitCycles = 3;
 
             do
@@ -144,18 +162,12 @@ namespace TestPGE.Nes
                 if (--cpuWaitCycles == 0)
                 {
                     _cpu.Clock();
-                    if (_cpu.RemainingInstructionCycles == 0)
-                    {
-                    }
                     cpuWaitCycles = 3;
                 }
 
                 _ppu.Clock();
             } while (_ppu.RemainingDotsInFrame > 0);
-
-            if (_ppu.BackgroundRenderEnabled)
-                Draw(0, 0, _ppu.RenderBackground());
-
+            
             _currentCycleTimeTicks += elapsedTicks;
 
             if (_currentCycleTimeTicks > TimeSpan.TicksPerSecond)
@@ -165,29 +177,69 @@ namespace TestPGE.Nes
                 frames = 0;
             }
 
+            if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.P] == KeyState.PRESSED)
+                TogglePaletteWindow();
+            if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.T] == KeyState.PRESSED)
+                TogglePatternWindow();
+            if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.N] == KeyState.PRESSED)
+                ToggleNameTableWindow();
+
             frames++;
 
             return true;
         }
 
+        private void TogglePaletteWindow()
+        {
+            if (!_drawPatternTables)
+                CreateSubDisplay(32, 16, 3, 3, "Pattern Table");
+            else
+                CloseSubDisplay("Pattern Table");
+
+            _drawPatternTables = !_drawPatternTables;
+        }
+
+        private void TogglePatternWindow()
+        {
+            if (!_drawPalettes)
+                CreateSubDisplay(32, 1, 16, 16, "Palette Table");
+            else
+                CloseSubDisplay("Palette Table");
+
+            _drawPalettes = !_drawPalettes;
+        }
+
+        private void ToggleNameTableWindow()
+        {
+            if (!_drawNameTables)
+                CreateSubDisplay(64 * 8, 60 * 8, 1, 1, "Name Table");
+            else
+                CloseSubDisplay("Name Table");
+
+            _drawNameTables = !_drawNameTables;
+        }
+
         private void DrawPalettes()
         {
-            SimpleTexture bgTex = new SimpleTexture(1, 1);
-            Color bgColor = BaseColors.Palette[_ppuBus.Read(0x3F00) & 0x3F];
-
-            bgTex.Data[0] = bgColor;
-
-            Draw(0, 0, bgTex, "Palette Table");
-
-            for (int i = 0; i < 8; i++)
+            if (_drawPalettes)
             {
-                SimpleTexture palTex = new SimpleTexture(3, 1);
+                SimpleTexture bgTex = new SimpleTexture(1, 1);
+                Color bgColor = BaseColors.Palette[_ppuBus.Read(0x3F00) & 0x3F];
 
-                palTex.Data[0] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 1)) & 0x3F];
-                palTex.Data[1] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F];
-                palTex.Data[2] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F];
+                bgTex.Data[0] = bgColor;
 
-                Draw(i * 6 + 3, 0, palTex, "Palette Table");
+                Draw(0, 0, bgTex, "Palette Table");
+
+                for (int i = 0; i < 8; i++)
+                {
+                    SimpleTexture palTex = new SimpleTexture(3, 1);
+
+                    palTex.Data[0] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 1)) & 0x3F];
+                    palTex.Data[1] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F];
+                    palTex.Data[2] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F];
+
+                    Draw(i * 6 + 3, 0, palTex, "Palette Table");
+                }
             }
         }
 
@@ -197,10 +249,11 @@ namespace TestPGE.Nes
             {
                 try
                 {
-                    //DrawPalettes();
+                    DrawPalettes();
                     //PrintState();
                     //PrintPPUData();
-                    //PrintPatternTables();
+                    PrintPPUInfo();
+                    PrintPatternTables();
                     PrintNameTables();
                 }
                 catch (NoGraphicsException)
@@ -212,13 +265,16 @@ namespace TestPGE.Nes
 
         private void PrintPatternTables()
         {
-            for (byte p = 0; p <= 0x01; p++)
+            if (_drawPatternTables)
             {
-                for (byte x = 0; x <= 0x0F; x++)
+                for (byte p = 0; p <= 0x01; p++)
                 {
-                    for (byte y = 0; y <= 0x0F; y++)
+                    for (byte x = 0; x <= 0x0F; x++)
                     {
-                        Draw(x + p * 16, y, _ppu.PrintPattern(p, (byte)((x << 4) + y)), "Pattern Table");
+                        for (byte y = 0; y <= 0x0F; y++)
+                        {
+                            Draw(x + p * 16, y, _ppu.PrintPattern(p, (byte)((x << 4) + y)), "Pattern Table");
+                        }
                     }
                 }
             }
@@ -226,26 +282,39 @@ namespace TestPGE.Nes
 
         private void PrintNameTables()
         {
-            SimpleTexture nameTable = new SimpleTexture(64 * 8, 60 * 8);
-            int idx = 0;
-
-            for (byte px = 0; px <= 0x01; px++)
+            if (_drawNameTables)
             {
+                SimpleTexture nameTable = new SimpleTexture(64 * 8, 60 * 8);
+
                 for (byte py = 0; py <= 0x01; py++)
-                { 
-                    for (byte x = 0; x < 32; x++)
+                {
+                    for (byte px = 0; px <= 0x01; px++)
                     {
                         for (byte y = 0; y < 30; y++)
                         {
-                            SimpleTexture tileTexture = _ppu.PrintTile((byte)(px * 2 + py), x, y);
-                            nameTable.Append(idx, tileTexture);
-                            idx += tileTexture.Data.Length;
+                            for (byte x = 0; x < 32; x++)
+                            {
+                                SimpleTexture tileTexture = _ppu.PrintTile((byte)(py * 2 + px), x, y);
+                                //nameTable.Combine(x * 8 + 32 * px, y * 8 + 30 * py, tileTexture);
+                                
+                                Draw(x * 8 + 32 * px * 8, y * 8 + 30 * py * 8, tileTexture, "Name Table");
+                            }
                         }
                     }
                 }
-            }
 
-            Draw(0, 0, nameTable, "Name Table");
+                //Draw(0, 0, nameTable, "Name Table");
+            }
+        }
+
+        private void PrintPPUInfo()
+        {
+            Console.SetCursorPosition(0, 0);
+            Console.WriteLine("v: {0:x4}", _ppu.PpuAddress);
+            Console.WriteLine("t: {0:x4}", _ppu.TempRegister);
+            Console.WriteLine("x: {0:x2}", _ppu.ScrollXPixel);
+            Console.WriteLine("Y: {0:x2}", _ppu.ScrollYPixel);
+            //Console.WriteLine(": {0:x2}", _ppu.Registers);
         }
 
         private void PrintPPUData()
@@ -298,7 +367,7 @@ namespace TestPGE.Nes
             }
 
             line.Clear();
-            Console.WriteLine("\n---------- Attribute Data -------------------------------------------");
+            Console.WriteLine("---------- Attribute Data -------------------------------------------");
 
             line.Append("23C0: ");
 
@@ -322,7 +391,7 @@ namespace TestPGE.Nes
                     line.Append("- ");
             }
 
-            Console.WriteLine("\n---------- Palette Data -------------------------------------------");
+            Console.WriteLine("---------- Palette Data -------------------------------------------");
 
             Console.Write("Palettes: ");
 
