@@ -1,4 +1,5 @@
-﻿using System;
+﻿using _6502Cpu;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -49,7 +50,7 @@ namespace TestPGE.Nes
             {
                 _oamDma.TransferBlock((UInt16)(data << 8), 0, 256);
                 // Takes 513 or 514 cycles to do OAMDMA.
-                _cpu.RemainingInstructionCycles += 513 + (_cpu.RemainingInstructionCycles % 2 == 0 ? 0 : 1);
+                //_cpu.RemainingInstructionCycles += 513 + (_cpu.RemainingInstructionCycles % 2 == 0 ? 0 : 1);
             }
             else if (address == 0x4016)
             {

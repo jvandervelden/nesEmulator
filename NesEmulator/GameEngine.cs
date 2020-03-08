@@ -32,8 +32,8 @@ namespace TestPGE
 
         private class SubDisplayInfo
         {
-            public Display Display { get; set; } = null;
-            public Graphics Graphics { get; set; } = null;
+            //public Display Display { get; set; } = null;
+            //public Graphics Graphics { get; set; } = null;
             public int PixelWidth { get; set; } = 1;
             public int PixelHeight { get; set; } = 1;
             public int Width { get; set; } = 1;
@@ -138,61 +138,61 @@ namespace TestPGE
             }
         }
 
-        private Display CreateDisplay(int width, int height, int pw, int ph)
-        {
-            Display display = new Display();
+        //private Display CreateDisplay(int width, int height, int pw, int ph)
+        //{
+        //    Display display = new Display();
 
-            display.MinimumSize = new Size(width * pw + 17, height * ph + 40);
-            display.MaximumSize = display.MinimumSize;
-            display.MaximizeBox = false;
+        //    display.MinimumSize = new Size(width * pw + 17, height * ph + 40);
+        //    display.MaximumSize = display.MinimumSize;
+        //    display.MaximizeBox = false;
 
-            display.Show();
+        //    display.Show();
 
-            return display;
-        }
+        //    return display;
+        //}
 
-        protected void CloseSubDisplay(string displayId)
-        {
-            if (_subDisplay.ContainsKey(displayId))
-            {
-                _subDisplay[displayId].Display.Close();
-                _subDisplay.Remove(displayId);
-            }
-        }
+        //protected void CloseSubDisplay(string displayId)
+        //{
+        //    if (_subDisplay.ContainsKey(displayId))
+        //    {
+        //        _subDisplay[displayId].Display.Close();
+        //        _subDisplay.Remove(displayId);
+        //    }
+        //}
 
-        protected void CreateSubDisplay(int width, int height, string displayId)
-        {
-            CreateSubDisplay(width, height, _pixelWidth, _pixelHeight, displayId);
-        }
+        //protected void CreateSubDisplay(int width, int height, string displayId)
+        //{
+        //    CreateSubDisplay(width, height, _pixelWidth, _pixelHeight, displayId);
+        //}
 
-        protected void CreateSubDisplay(int width, int height, int pw, int ph, string displayId)
-        {
-            Display subDisplay = CreateDisplay(width, height, pw, ph);
-            Graphics subGraphics = subDisplay.CreateGraphics();
+        //protected void CreateSubDisplay(int width, int height, int pw, int ph, string displayId)
+        //{
+        //    Display subDisplay = CreateDisplay(width, height, pw, ph);
+        //    Graphics subGraphics = subDisplay.CreateGraphics();
 
-            subDisplay.Message = displayId;
-            subDisplay.DisplayId = displayId;
-            subDisplay.FormClosing += SubDisplay_FormClosing;
+        //    subDisplay.Message = displayId;
+        //    subDisplay.DisplayId = displayId;
+        //    subDisplay.FormClosing += SubDisplay_FormClosing;
 
-            subGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
+        //    subGraphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.HighSpeed;
             
-            _subDisplay.Add(displayId, new SubDisplayInfo() {
-                Display = subDisplay,
-                Graphics = subGraphics,
-                PixelWidth = pw,
-                PixelHeight = ph,
-                Width = width,
-                Height = height
-            });
-        }
+        //    _subDisplay.Add(displayId, new SubDisplayInfo() {
+        //        Display = subDisplay,
+        //        Graphics = subGraphics,
+        //        PixelWidth = pw,
+        //        PixelHeight = ph,
+        //        Width = width,
+        //        Height = height
+        //    });
+        //}
 
-        private void SubDisplay_FormClosing(object sender, System.Windows.Forms.FormClosingEventArgs e)
-        {
-            if (_subDisplay.Count > 0)
-            {
-                _subDisplay.Remove(((Display)sender).DisplayId);
-            }
-        }
+        //private void SubDisplay_FormClosing(object sender, System.Windows.Forms.FormClosingEventArgs e)
+        //{
+        //    if (_subDisplay.Count > 0)
+        //    {
+        //        _subDisplay.Remove(((Display)sender).DisplayId);
+        //    }
+        //}
 
         private long lastFireTime;
         private bool updatePass;
@@ -239,16 +239,16 @@ namespace TestPGE
             spriteBatch.Draw(image.ToXnaTexture(GraphicsDevice), new Microsoft.Xna.Framework.Rectangle(x * _pixelWidth, y * _pixelHeight, image.Width * _pixelWidth, image.Height * _pixelHeight), Microsoft.Xna.Framework.Color.White);
         }
 
-        protected void Draw(int x, int y, SimpleTexture image, string display)
-        {
-            SubDisplayInfo displayInfo = GetDisplay(display);
+        //protected void Draw(int x, int y, SimpleTexture image, string display)
+        //{
+        //    SubDisplayInfo displayInfo = GetDisplay(display);
 
-            displayInfo?.Graphics.DrawImage(image.ToBitMap(), 
-                    x * displayInfo.PixelWidth, 
-                    y * displayInfo.PixelHeight, 
-                    image.Width * displayInfo.PixelWidth, 
-                    image.Height * displayInfo.PixelHeight);
-        }
+        //    displayInfo?.Graphics.DrawImage(image.ToBitMap(), 
+        //            x * displayInfo.PixelWidth, 
+        //            y * displayInfo.PixelHeight, 
+        //            image.Width * displayInfo.PixelWidth, 
+        //            image.Height * displayInfo.PixelHeight);
+        //}
 
         protected void Draw(int x, int y, Microsoft.Xna.Framework.Color color)
         {
@@ -258,90 +258,90 @@ namespace TestPGE
             spriteBatch.Draw(tex, new Microsoft.Xna.Framework.Rectangle(x * _pixelWidth, y * _pixelHeight, _pixelWidth, _pixelHeight), Microsoft.Xna.Framework.Color.White);
         }
 
-        protected void Draw(int x, int y, System.Drawing.Color color, string display)
-        {
-            SubDisplayInfo displayInfo = GetDisplay(display);
+        //protected void Draw(int x, int y, System.Drawing.Color color, string display)
+        //{
+        //    SubDisplayInfo displayInfo = GetDisplay(display);
 
-            displayInfo?.Graphics.FillRectangle(new SolidBrush(color), new System.Drawing.Rectangle(x * _pixelWidth, y * _pixelHeight, _pixelWidth, _pixelHeight));
-        }
+        //    displayInfo?.Graphics.FillRectangle(new SolidBrush(color), new System.Drawing.Rectangle(x * _pixelWidth, y * _pixelHeight, _pixelWidth, _pixelHeight));
+        //}
 
-        protected void DrawRect(int x, int y, int width, int height, System.Drawing.Color color, bool fill = true, string display = null)
-        {
-            SubDisplayInfo displayInfo = GetDisplay(display);
+        //protected void DrawRect(int x, int y, int width, int height, System.Drawing.Color color, bool fill = true, string display = null)
+        //{
+        //    SubDisplayInfo displayInfo = GetDisplay(display);
 
-            if (displayInfo == null) return;
+        //    if (displayInfo == null) return;
 
-            var pen = new Pen(color);
-            var brush = new SolidBrush(color);
-            var rectangle = new System.Drawing.Rectangle(x * _pixelWidth, y * _pixelHeight, width * _pixelWidth, height * _pixelHeight);
+        //    var pen = new Pen(color);
+        //    var brush = new SolidBrush(color);
+        //    var rectangle = new System.Drawing.Rectangle(x * _pixelWidth, y * _pixelHeight, width * _pixelWidth, height * _pixelHeight);
 
-            if (fill) displayInfo?.Graphics.FillRectangle(brush, rectangle);
-            else displayInfo?.Graphics.DrawRectangle(pen, rectangle);
-        }
+        //    if (fill) displayInfo?.Graphics.FillRectangle(brush, rectangle);
+        //    else displayInfo?.Graphics.DrawRectangle(pen, rectangle);
+        //}
 
-        protected void DrawString(int x, int y, String message, System.Drawing.Color color, string display)
-        {
-            SubDisplayInfo displayInfo = GetDisplay(display);
-            displayInfo?.Graphics.DrawString(message, new Font(FontFamily.GenericMonospace, 10), new SolidBrush(color), x, y);
-        }
+        //protected void DrawString(int x, int y, String message, System.Drawing.Color color, string display)
+        //{
+        //    SubDisplayInfo displayInfo = GetDisplay(display);
+        //    displayInfo?.Graphics.DrawString(message, new Font(FontFamily.GenericMonospace, 10), new SolidBrush(color), x, y);
+        //}
 
-        protected void DrawLine(int x1, int y1, int x2, int y2, System.Drawing.Color color, string display)
-        {
-            double slope = (x1 - x2) == 0 ? 1 : (y1 - y2) / (x1 - x2);
-            double b = y1 - slope * x1;
+        //protected void DrawLine(int x1, int y1, int x2, int y2, System.Drawing.Color color, string display)
+        //{
+        //    double slope = (x1 - x2) == 0 ? 1 : (y1 - y2) / (x1 - x2);
+        //    double b = y1 - slope * x1;
 
-            if (Math.Abs(slope) > 1)
-            {
-                int sY = Math.Min(y1, y2);
-                int eY = Math.Max(y1, y2);
+        //    if (Math.Abs(slope) > 1)
+        //    {
+        //        int sY = Math.Min(y1, y2);
+        //        int eY = Math.Max(y1, y2);
 
-                for (int ty = sY; ty <= eY; ty++)
-                {
-                    double tx = Math.Round((ty - b) / slope);
-                    Draw((int)Math.Round(tx), ty, color, display);
-                }
-            }
-            else
-            {
-                int sX = Math.Min(x1, x2);
-                int eX = Math.Max(x1, x2);
+        //        for (int ty = sY; ty <= eY; ty++)
+        //        {
+        //            double tx = Math.Round((ty - b) / slope);
+        //            Draw((int)Math.Round(tx), ty, color, display);
+        //        }
+        //    }
+        //    else
+        //    {
+        //        int sX = Math.Min(x1, x2);
+        //        int eX = Math.Max(x1, x2);
 
-                for (int tx = sX; tx <= eX; tx++)
-                {
-                    double ty = Math.Round(slope * tx + b);
-                    Draw(tx, (int)Math.Round(ty), color, display);
-                }
-            }
-        }
+        //        for (int tx = sX; tx <= eX; tx++)
+        //        {
+        //            double ty = Math.Round(slope * tx + b);
+        //            Draw(tx, (int)Math.Round(ty), color, display);
+        //        }
+        //    }
+        //}
 
-        protected void DrawWireFrameModel(List<Vec2d> modelCoordinates, double x, double y, double r, double s, System.Drawing.Color color, string display)
-	    {
-            // Create translated model vector of coordinate pairs
-            List<Vec2d> transformedCoordinates = new List<Vec2d>();
-            int verts = modelCoordinates.Count;
+     //   protected void DrawWireFrameModel(List<Vec2d> modelCoordinates, double x, double y, double r, double s, System.Drawing.Color color, string display)
+	    //{
+     //       // Create translated model vector of coordinate pairs
+     //       List<Vec2d> transformedCoordinates = new List<Vec2d>();
+     //       int verts = modelCoordinates.Count;
 
-		    // Rotate
-		    for (int i = 0; i < verts; i++)
-		    {
-                transformedCoordinates.Add(Vec2d.XY(0, 0));
+		   // // Rotate
+		   // for (int i = 0; i < verts; i++)
+		   // {
+     //           transformedCoordinates.Add(Vec2d.XY(0, 0));
                 
-                transformedCoordinates[i].X = modelCoordinates[i].X * Math.Cos(r) - modelCoordinates[i].Y * Math.Sin(r);
-                transformedCoordinates[i].Y = modelCoordinates[i].X * Math.Sin(r) + modelCoordinates[i].Y * Math.Cos(r);
+     //           transformedCoordinates[i].X = modelCoordinates[i].X * Math.Cos(r) - modelCoordinates[i].Y * Math.Sin(r);
+     //           transformedCoordinates[i].Y = modelCoordinates[i].X * Math.Sin(r) + modelCoordinates[i].Y * Math.Cos(r);
 
-                transformedCoordinates[i].X = transformedCoordinates[i].X * s;
-                transformedCoordinates[i].Y = transformedCoordinates[i].Y * s;
+     //           transformedCoordinates[i].X = transformedCoordinates[i].X * s;
+     //           transformedCoordinates[i].Y = transformedCoordinates[i].Y * s;
 
-                transformedCoordinates[i].X = transformedCoordinates[i].X + x;
-			    transformedCoordinates[i].Y = transformedCoordinates[i].Y + y;
-		    }
+     //           transformedCoordinates[i].X = transformedCoordinates[i].X + x;
+			  //  transformedCoordinates[i].Y = transformedCoordinates[i].Y + y;
+		   // }
 
-		    // Draw Closed Polygon
-		    for (int i = 0; i<verts + 1; i++)
-		    {
-			    int j = (i + 1);
-                DrawLine((int)Math.Round(transformedCoordinates[i % verts].X), (int)Math.Round(transformedCoordinates[i % verts].Y),
-                    (int)Math.Round(transformedCoordinates[j % verts].X), (int)Math.Round(transformedCoordinates[j % verts].Y), color, display);
-		    }
-	    }
+		   // // Draw Closed Polygon
+		   // for (int i = 0; i<verts + 1; i++)
+		   // {
+			  //  int j = (i + 1);
+     //           DrawLine((int)Math.Round(transformedCoordinates[i % verts].X), (int)Math.Round(transformedCoordinates[i % verts].Y),
+     //               (int)Math.Round(transformedCoordinates[j % verts].X), (int)Math.Round(transformedCoordinates[j % verts].Y), color, display);
+		   // }
+	    //}
     }
 }

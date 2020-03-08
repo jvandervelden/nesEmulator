@@ -1,4 +1,6 @@
-﻿using Microsoft.Xna.Framework;
+﻿using _6502Cpu;
+using Common.Bus;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -46,6 +48,7 @@ namespace TestPGE.Nes
             public byte HighPatternByte { get; private set; } = 0x00;
             public byte LowPatternByte { get; private set; } = 0x00;
             public bool Loaded { get; private set; } = false;
+
 
             public void Reset()
             {
@@ -162,6 +165,10 @@ namespace TestPGE.Nes
         public bool EmphasiseRed => (_registers[PPU_MASK_REGISTER] & RED_EMPHASIS_REGISTER_BIT) == RED_EMPHASIS_REGISTER_BIT;
         public bool EmphasiseGreen => (_registers[PPU_MASK_REGISTER] & GREEN_EMPHASIS_REGISTER_BIT) == GREEN_EMPHASIS_REGISTER_BIT;
         public bool EmphasiseBlue => (_registers[PPU_MASK_REGISTER] & BLUE_EMPHASIS_REGISTER_BIT) == BLUE_EMPHASIS_REGISTER_BIT;
+        
+        private bool _frameReady = false;
+
+        public bool FrameReady { get { bool ret = _frameReady; _frameReady = false; return ret; } }
 
         public double FPS { get; private set; } = 0;
 
@@ -521,6 +528,7 @@ namespace TestPGE.Nes
                 _currentScanline = 0;
                 RemainingDotsInFrame = DOTS_PER_FRAME;
                 _oddFrame = !_oddFrame;
+                _frameReady = true;
             }
 
             RemainingDotsInFrame--;

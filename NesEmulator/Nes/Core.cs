@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
+//using System.Windows.Forms;
 using TestPGE.Nes.Memory;
 using TestPGE.Nes.Bus;
 using System.Threading;
 using Microsoft.Xna.Framework;
+using Common.Memory;
+using _6502Cpu;
+using Common.Bus;
 
 namespace TestPGE.Nes
 {
@@ -42,6 +45,12 @@ namespace TestPGE.Nes
         private bool _drawPatternTables = false;
 
         private Cartridge _cartridge;
+
+        private Thread _ppuThread;
+        private Thread _cpuThread;
+
+        private bool _ppuTick = false;
+        private bool _cpuTick = false;
 
         protected override bool OnUserCreate()
         {
@@ -114,9 +123,18 @@ namespace TestPGE.Nes
             // RESET TO INITIAL STATE
             _cpu.Reset();
 
-            Thread printThread = new Thread(this.tStart);
+            //Thread printThread = new Thread(this.tStart);
 
-            printThread.Start();
+            //printThread.Start();
+
+            //_ppuThread = new Thread(this.ppuStart);
+            //_cpuThread = new Thread(this.cpuStart);
+
+            //_ppuThread.Start(_ppu);
+            //_cpuThread.Start(_cpu);
+
+            //Thread main = new Thread(this.mainStart);
+            //main.Start();
 
             return true;
         }
@@ -150,24 +168,20 @@ namespace TestPGE.Nes
             return true;
         }
 
-
         protected override bool OnUserUpdate(long elapsedTicks)
         {
             UpdateControllerState();
 
-            int cpuWaitCycles = 3;
-
             do
             {
-                if (--cpuWaitCycles == 0)
-                {
-                    _cpu.Clock();
-                    cpuWaitCycles = 3;
-                }
+                int ticks = _cpu.Clock();
 
-                _ppu.Clock();
-            } while (_ppu.RemainingDotsInFrame > 0);
-            
+                for (int i = 0; i < ticks * 3; i++)
+                {
+                    _ppu.Clock();
+                }
+            } while (!_ppu.FrameReady);
+
             _currentCycleTimeTicks += elapsedTicks;
 
             if (_currentCycleTimeTicks > TimeSpan.TicksPerSecond)
@@ -191,30 +205,30 @@ namespace TestPGE.Nes
 
         private void TogglePaletteWindow()
         {
-            if (!_drawPatternTables)
-                CreateSubDisplay(32, 16, 3, 3, "Pattern Table");
-            else
-                CloseSubDisplay("Pattern Table");
+            //if (!_drawPatternTables)
+            //    CreateSubDisplay(32, 16, 3, 3, "Pattern Table");
+            //else
+            //    CloseSubDisplay("Pattern Table");
 
             _drawPatternTables = !_drawPatternTables;
         }
 
         private void TogglePatternWindow()
         {
-            if (!_drawPalettes)
-                CreateSubDisplay(32, 1, 16, 16, "Palette Table");
-            else
-                CloseSubDisplay("Palette Table");
+            //if (!_drawPalettes)
+            //    CreateSubDisplay(32, 1, 16, 16, "Palette Table");
+            //else
+            //    CloseSubDisplay("Palette Table");
 
             _drawPalettes = !_drawPalettes;
         }
 
         private void ToggleNameTableWindow()
         {
-            if (!_drawNameTables)
-                CreateSubDisplay(64 * 8, 60 * 8, 1, 1, "Name Table");
-            else
-                CloseSubDisplay("Name Table");
+            //if (!_drawNameTables)
+            //    CreateSubDisplay(64 * 8, 60 * 8, 1, 1, "Name Table");
+            //else
+            //    CloseSubDisplay("Name Table");
 
             _drawNameTables = !_drawNameTables;
         }
@@ -228,7 +242,7 @@ namespace TestPGE.Nes
 
                 bgTex.Data[0] = bgColor;
 
-                Draw(0, 0, bgTex, "Palette Table");
+                //Draw(0, 0, bgTex, "Palette Table");
 
                 for (int i = 0; i < 8; i++)
                 {
@@ -238,7 +252,7 @@ namespace TestPGE.Nes
                     palTex.Data[1] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F];
                     palTex.Data[2] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F];
 
-                    Draw(i * 6 + 3, 0, palTex, "Palette Table");
+                   // Draw(i * 6 + 3, 0, palTex, "Palette Table");
                 }
             }
         }
@@ -273,7 +287,7 @@ namespace TestPGE.Nes
                     {
                         for (byte y = 0; y <= 0x0F; y++)
                         {
-                            Draw(x + p * 16, y, _ppu.PrintPattern(p, (byte)((x << 4) + y)), "Pattern Table");
+                            //Draw(x + p * 16, y, _ppu.PrintPattern(p, (byte)((x << 4) + y)), "Pattern Table");
                         }
                     }
                 }
@@ -297,7 +311,7 @@ namespace TestPGE.Nes
                                 SimpleTexture tileTexture = _ppu.PrintTile((byte)(py * 2 + px), x, y);
                                 //nameTable.Combine(x * 8 + 32 * px, y * 8 + 30 * py, tileTexture);
                                 
-                                Draw(x * 8 + 32 * px * 8, y * 8 + 30 * py * 8, tileTexture, "Name Table");
+                                //Draw(x * 8 + 32 * px * 8, y * 8 + 30 * py * 8, tileTexture, "Name Table");
                             }
                         }
                     }

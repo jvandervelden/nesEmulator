@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TestPGE.Nes.Bus;
+using Common.Bus;
 
 /// <summary>
 /// Shout out to One loan coder for the reference while building the structure of this CPU implementation: https://github.com/OneLoneCoder/olcNES
 /// </summary>
-namespace TestPGE.Nes
+namespace _6502Cpu
 {
     public class Cpu : I6502
     {
@@ -51,7 +51,7 @@ namespace TestPGE.Nes
         public UInt16 Address { get; set; }
         public SByte BranchRelativeAddress { get; set; }
 
-        public int RemainingInstructionCycles { get; set; } = 0;
+        //public int RemainingInstructionCycles { get; set; } = 0;
         private long ClockCycles = 0;
 
         private bool _interuptFlagged = false;
@@ -118,7 +118,7 @@ namespace TestPGE.Nes
             _fetched = null;
 
             // Reset takes time
-            RemainingInstructionCycles = 8;
+            //RemainingInstructionCycles = 8;
         }
 
         private void JumpToInteruptAddress(UInt16 interuptAddress, bool SetBreak = false)
@@ -166,24 +166,24 @@ namespace TestPGE.Nes
             _interuptRequiredCycles = 8;
         }
 
-        public void Clock()
+        public int Clock()
         {
-            if (RemainingInstructionCycles == 0 && _interuptFlagged)
+            int instructionCycles = 1;
+
+            if (_interuptFlagged)
             {
                 JumpToInteruptAddress(_interuptExecutionAddress, _interuptSetBreak);
                 _interuptFlagged = false;
-                RemainingInstructionCycles = _interuptRequiredCycles;
-            }
+                instructionCycles = _interuptRequiredCycles;
+            } else { 
 
-            if (RemainingInstructionCycles == 0)
-            {
                 byte nextOpcode = Bus.Read(ProgramCounter);
                                 
                 ProgramCounter++;
 
                 Instruction = InstructionSet.InstuctionsByOpcode[nextOpcode];
 
-                RemainingInstructionCycles = Instruction.Cycles;
+                instructionCycles = Instruction.Cycles;
 
                 try
                 {
@@ -192,7 +192,7 @@ namespace TestPGE.Nes
 
                     _fetched = null;
 
-                    RemainingInstructionCycles += addressModeExtra & operateExtra;
+                    instructionCycles += addressModeExtra & operateExtra;
                 }
                 catch (NotImplementedException)
                 {
@@ -204,8 +204,8 @@ namespace TestPGE.Nes
                 }
             }
 
-            ClockCycles++;
-            RemainingInstructionCycles--;
+            ClockCycles += instructionCycles;
+            return instructionCycles;
         }
     }
 }

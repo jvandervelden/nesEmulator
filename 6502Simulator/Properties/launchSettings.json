@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "6502Simulator": {
+      "commandName": "Project",
+      "commandLineArgs": "D:\\repos\\test-6502\\main.bin"
+    }
+  }
+}

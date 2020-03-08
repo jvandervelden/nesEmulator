@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 /// Shout out to One Loan Coder for building the address mode code that I referenced/pretty much copied while writing mine.
 /// https://github.com/OneLoneCoder/olcNES/blob/master/Part%232%20-%20CPU/olc6502.cpp
 /// </summary>
-namespace TestPGE.Nes
+namespace _6502Cpu
 {
     public static class AddressModes
     {

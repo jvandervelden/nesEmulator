@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TestPGE.Nes.Bus;
+using Common.Bus;
 
-namespace TestPGE.Nes
+namespace _6502Cpu
 {
     public enum Flags
     {
@@ -33,7 +33,7 @@ namespace TestPGE.Nes
         UInt16 Address { get; set; }
         SByte BranchRelativeAddress { get; set; }
 
-        int RemainingInstructionCycles { get; set; }
+        //int RemainingInstructionCycles { get; set; }
 
         DataBus Bus { get; set; }
 
@@ -52,6 +52,6 @@ namespace TestPGE.Nes
         // Non-Maskable Interrupt Request - As above, but cannot be disabled
         void NMI();
 
-        void Clock();
+        int Clock();
     }
 }

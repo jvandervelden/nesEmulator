@@ -18,7 +18,7 @@ namespace TestPGE
         public SimpleTexture(int width, int height) : this(new Microsoft.Xna.Framework.Color[width * height], width, height) { }
 
         private Texture2D _generatedTexture = null;
-        private Bitmap _generatedImage = null;
+       // private Bitmap _generatedImage = null;
 
         public SimpleTexture(Microsoft.Xna.Framework.Color[] data, int width, int height)
         {
@@ -45,18 +45,18 @@ namespace TestPGE
             return _generatedTexture;
         }
 
-        public Bitmap ToBitMap()
-        {
-            if (_generatedImage == null)
-                _generatedImage = new Bitmap(Width, Height);
+        //public Bitmap ToBitMap()
+        //{
+        //    if (_generatedImage == null)
+        //        _generatedImage = new Bitmap(Width, Height);
 
-            UInt32[] data = new UInt32[Data.Length];
+        //    UInt32[] data = new UInt32[Data.Length];
 
-            for (int i = 0; i < Data.Length; i++)
-                _generatedImage.SetPixel(i % Width, i / Width, System.Drawing.Color.FromArgb(Data[i].A, Data[i].R, Data[i].G, Data[i].B));
+        //    for (int i = 0; i < Data.Length; i++)
+        //        _generatedImage.SetPixel(i % Width, i / Width, System.Drawing.Color.FromArgb(Data[i].A, Data[i].R, Data[i].G, Data[i].B));
 
-            return _generatedImage;
-        }
+        //    return _generatedImage;
+        //}
 
         public void Combine(int x, int y, SimpleTexture simpleTexture)
         {

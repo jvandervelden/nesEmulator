@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 /// Shout out to One Loan Coder for building the instruction set code that I referenced while writing mine.
 /// https://github.com/OneLoneCoder/olcNES/blob/master/Part%232%20-%20CPU/olc6502.cpp
 /// </summary>
-namespace TestPGE.Nes
+namespace _6502Cpu
 {
     public static class InstructionSet
     {
@@ -68,50 +68,53 @@ namespace TestPGE.Nes
 
         public static byte BCC(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (!cpu.GetFlag(Flags.C))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
             }
 
-            return 0;
+            return extraCycles;
         }
 
         public static byte BCS(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (cpu.GetFlag(Flags.C))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
             }
 
-            return 0;
+            return extraCycles;
         }
         
         public static byte BEQ(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (cpu.GetFlag(Flags.Z))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
@@ -132,56 +135,59 @@ namespace TestPGE.Nes
         }
         public static byte BMI(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (cpu.GetFlag(Flags.N))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
             }
 
-            return 0;
+            return extraCycles;
         }
 
         public static byte BNE(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (!cpu.GetFlag(Flags.Z))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
             }
 
-            return 0;
+            return extraCycles;
         }
 
         public static byte BPL(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (!cpu.GetFlag(Flags.N))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
             }
 
-            return 0;
+            return extraCycles;
         }
 
         public static byte BRK(I6502 cpu)
@@ -192,38 +198,40 @@ namespace TestPGE.Nes
 
         public static byte BVC(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (!cpu.GetFlag(Flags.V))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
             }
 
-            return 0;
+            return extraCycles;
         }
 
         public static byte BVS(I6502 cpu)
         {
+            byte extraCycles = 0;
             if (cpu.GetFlag(Flags.V))
             {
-                cpu.RemainingInstructionCycles++;
+                extraCycles++;
                 cpu.Address = (UInt16)(cpu.ProgramCounter + cpu.BranchRelativeAddress);
 
                 if ((cpu.Address & 0xFF00) != (cpu.ProgramCounter & 0xFF00))
                 {
-                    cpu.RemainingInstructionCycles++;
+                    extraCycles++;
                 }
 
                 cpu.ProgramCounter = cpu.Address;
             }
 
-            return 0;
+            return extraCycles;
         }
         public static byte CLC(I6502 cpu)
         {

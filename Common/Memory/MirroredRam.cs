@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using TestPGE.Nes.Bus;
+using Common.Bus;
 
-namespace TestPGE.Nes.Memory
+namespace Common.Memory
 {
     public class MirroredRam : IBusInterface
     {

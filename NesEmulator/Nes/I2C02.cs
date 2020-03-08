@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+﻿using Common.Bus;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -35,5 +36,7 @@ namespace TestPGE.Nes
         UInt16 YSpriteLine { get; }
         byte ScrollYPixel { get; }
         byte ScrollXPixel { get; }
+
+        bool FrameReady { get; }
     }
 }

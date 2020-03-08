@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace TestPGE.Nes
+namespace _6502Cpu
 {
     public class Instruction
     {
