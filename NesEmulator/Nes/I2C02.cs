@@ -1,5 +1,5 @@
 ﻿using Common.Bus;
-using Microsoft.Xna.Framework.Graphics;
+using CorePixelEngine;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -20,10 +20,10 @@ namespace TestPGE.Nes
         void WriteOamBlock(byte oamAddress, byte[] data);
         void Clock();
 
-        SimpleTexture RenderBackground();
+        Sprite RenderBackground();
 
-        SimpleTexture PrintPattern(byte tableNumber, byte sprite, byte? palette = null);
-        SimpleTexture PrintTile(byte nameTable, byte xTile, byte yTile);
+        Sprite PrintPattern(byte tableNumber, byte sprite, byte? palette = null);
+        Sprite PrintTile(byte nameTable, byte xTile, byte yTile);
 
 
         bool BackgroundRenderEnabled { get; }

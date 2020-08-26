@@ -1,23 +1,20 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-//using System.Windows.Forms;
 using TestPGE.Nes.Memory;
 using TestPGE.Nes.Bus;
 using System.Threading;
-using Microsoft.Xna.Framework;
 using Common.Memory;
 using _6502Cpu;
 using Common.Bus;
+using CorePixelEngine;
 
 namespace TestPGE.Nes
 {
-    public class Core : GameEngine
+    public class Core : PixelGameEngine, IDisposable
     {
         public static readonly double TARGET_CLOCK_FREQ = 21477272;
-        public static readonly double TICKS_BETWEN_CYCLES = TARGET_CLOCK_FREQ / TimeSpan.TicksPerMillisecond;
+        public static readonly double TICKS_BETWEN_CYCLES = TARGET_CLOCK_FREQ / TimeSpan.TicksPerSecond;
         public static UInt16 NES_RAM_SIZE = 0x0800; // 2kb of Ram
         public static UInt16 CPU_ADDRESSABLE_RANGE = 0xFFFF; // 16 bit cpu address bus.
         public static UInt16 PPU_ADDRESSABLE_RANGE = 0x3FFF; // 14 bit ppu address bus.
@@ -25,7 +22,7 @@ namespace TestPGE.Nes
         public static readonly long NTSC_FRAME_CYCLES = 29780;
         public static readonly long NTSC_V_BLANK_CYCLES = 2273;
 
-        public Core(int width, int height, int px, int py) : base(width, height, px, py) { }
+        protected override string sAppName => "Nes Emulator";
 
         private Ram _ram;
         private NameTableRam _vram;
@@ -52,7 +49,7 @@ namespace TestPGE.Nes
         private bool _ppuTick = false;
         private bool _cpuTick = false;
 
-        protected override bool OnUserCreate()
+        public override bool OnUserCreate()
         {
             // SETUP THE RAM
             _ram = new Ram(NES_RAM_SIZE);
@@ -83,7 +80,7 @@ namespace TestPGE.Nes
             //_cartridge.Load(@"D:\tmp\full_palette.nes");
             //_cartridge.Load(@"D:\tmp\nestest.nes");
             //_cartridge.Load(@"D:\tmp\Legend of Zelda, The (USA).nes");
-            _cartridge.Load(@"D:\tmp\Super Mario Bros. (World).nes");
+            _cartridge.Load(@"E:\games\roms\Super Mario Bros (E).nes");
             //_cartridge.Load(@"D:\tmp\Super Mario Bros. 3 (USA).nes");
             //_cartridge.Load(@"D:\tmp\Clu Clu Land (World).nes");
             //_cartridge.Load(@"D:\tmp\DuckTales (USA).nes");
@@ -101,20 +98,6 @@ namespace TestPGE.Nes
                 _paletteRam = new PaletteRam();
                 _ppuBus.ConnectDevice(_paletteRam, 0x3F00, 0x3FFF);
             }
-
-            // Setup Input
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Up, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Down, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Left, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Right, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Z, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.X, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.RightShift, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.Enter, KeyState.OPEN);
-
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.P, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.N, KeyState.OPEN);
-            interestedKeys.Add(Microsoft.Xna.Framework.Input.Keys.T, KeyState.OPEN);
 
             _controller = new Controller();
 
@@ -139,37 +122,30 @@ namespace TestPGE.Nes
             return true;
         }
 
-        protected override void Dispose(bool disposing)
+        public void Dispose()
         {
             _cartridge.Dispose();
-            base.Dispose(disposing);
         }
 
-        long _currentCycleTimeTicks = 0;
-
-        long _masterFps = 0;
-        int frames = 0;
+        float _currentCycleTime = 0;
 
         protected void UpdateControllerState()
         {
-            _controller.SetButton(Controller.ControllerButtons.UP, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Up] == KeyState.HELD);
-            _controller.SetButton(Controller.ControllerButtons.DOWN, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Down] == KeyState.HELD);
-            _controller.SetButton(Controller.ControllerButtons.LEFT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Left] == KeyState.HELD);
-            _controller.SetButton(Controller.ControllerButtons.RIGHT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Right] == KeyState.HELD);
-            _controller.SetButton(Controller.ControllerButtons.B, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Z] == KeyState.HELD);
-            _controller.SetButton(Controller.ControllerButtons.A, interestedKeys[Microsoft.Xna.Framework.Input.Keys.X] == KeyState.HELD);
-            _controller.SetButton(Controller.ControllerButtons.SELECT, interestedKeys[Microsoft.Xna.Framework.Input.Keys.RightShift] == KeyState.HELD);
-            _controller.SetButton(Controller.ControllerButtons.START, interestedKeys[Microsoft.Xna.Framework.Input.Keys.Enter] == KeyState.HELD);
+            _controller.SetButton(Controller.ControllerButtons.UP, Input.GetKey(Key.UP).bHeld);
+            _controller.SetButton(Controller.ControllerButtons.DOWN, Input.GetKey(Key.DOWN).bHeld);
+            _controller.SetButton(Controller.ControllerButtons.LEFT, Input.GetKey(Key.LEFT).bHeld);
+            _controller.SetButton(Controller.ControllerButtons.RIGHT, Input.GetKey(Key.RIGHT).bHeld);
+            _controller.SetButton(Controller.ControllerButtons.B, Input.GetKey(Key.Z).bHeld);
+            _controller.SetButton(Controller.ControllerButtons.A, Input.GetKey(Key.X).bHeld);
+            _controller.SetButton(Controller.ControllerButtons.SELECT, Input.GetKey(Key.SHIFT).bHeld);
+            _controller.SetButton(Controller.ControllerButtons.START, Input.GetKey(Key.ENTER).bHeld);
         }
 
-        protected override bool DrawFrame(long elapsedTicks)
+        public override bool OnUserUpdate(float elapsedTime)
         {
-            Draw(0, 0, _ppu.RenderBackground());
-            return true;
-        }
+            int frameTicks = 0;
+            _currentCycleTime += elapsedTime;
 
-        protected override bool OnUserUpdate(long elapsedTicks)
-        {
             UpdateControllerState();
 
             do
@@ -180,25 +156,23 @@ namespace TestPGE.Nes
                 {
                     _ppu.Clock();
                 }
+
+                frameTicks += ticks;
             } while (!_ppu.FrameReady);
 
-            _currentCycleTimeTicks += elapsedTicks;
 
-            if (_currentCycleTimeTicks > TimeSpan.TicksPerSecond)
-            {
-                _masterFps = frames;
-                _currentCycleTimeTicks = 0;
-                frames = 0;
-            }
 
-            if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.P] == KeyState.PRESSED)
-                TogglePaletteWindow();
-            if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.T] == KeyState.PRESSED)
-                TogglePatternWindow();
-            if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.N] == KeyState.PRESSED)
-                ToggleNameTableWindow();
+            //if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.P] == KeyState.PRESSED)
+            //    TogglePaletteWindow();
+            //if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.T] == KeyState.PRESSED)
+            //    TogglePatternWindow();
+            //if (interestedKeys[Microsoft.Xna.Framework.Input.Keys.N] == KeyState.PRESSED)
+            //    ToggleNameTableWindow();
 
-            frames++;
+            DrawSprite(0, 0, _ppu.RenderBackground(), 1, (byte)Sprite.Flip.NONE);
+
+            PrintPatternTables();
+            DrawPalettes();
 
             return true;
         }
@@ -235,60 +209,54 @@ namespace TestPGE.Nes
 
         private void DrawPalettes()
         {
-            if (_drawPalettes)
+            Sprite bgTex = new Sprite(1, 1);
+            Pixel bgColor = BasePixels.Palette[_ppuBus.Read(0x3F00) & 0x3F];
+
+            bgTex.SetPixel(0, 0, bgColor);
+
+            DrawSprite(0, 250, bgTex, 4, (byte)Sprite.Flip.NONE);
+
+            for (int i = 0; i < 8; i++)
             {
-                SimpleTexture bgTex = new SimpleTexture(1, 1);
-                Color bgColor = BaseColors.Palette[_ppuBus.Read(0x3F00) & 0x3F];
+                Sprite palTex = new Sprite(3, 1);
 
-                bgTex.Data[0] = bgColor;
+                palTex.SetPixel(0, 0, BasePixels.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 1)) & 0x3F]);
+                palTex.SetPixel(1, 0, BasePixels.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F]);
+                palTex.SetPixel(2, 0, BasePixels.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F]);
 
-                //Draw(0, 0, bgTex, "Palette Table");
-
-                for (int i = 0; i < 8; i++)
-                {
-                    SimpleTexture palTex = new SimpleTexture(3, 1);
-
-                    palTex.Data[0] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 1)) & 0x3F];
-                    palTex.Data[1] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 2)) & 0x3F];
-                    palTex.Data[2] = BaseColors.Palette[_ppuBus.Read((UInt16)(0x3F00 + i * 4 + 3)) & 0x3F];
-
-                   // Draw(i * 6 + 3, 0, palTex, "Palette Table");
-                }
+                DrawSprite(4 + i * 12, 250, palTex, 4, (byte)Sprite.Flip.NONE);
             }
         }
 
         private void tStart(object data)
         {
-            while (IsRunning)
-            {
-                try
-                {
-                    DrawPalettes();
-                    //PrintState();
-                    //PrintPPUData();
-                    PrintPPUInfo();
-                    PrintPatternTables();
-                    PrintNameTables();
-                }
-                catch (NoGraphicsException)
-                {
-                    // Display was closed.
-                }
-            }
+            //while (IsRunning)
+            //{
+            //    try
+            //    {
+            //        DrawPalettes();
+            //        //PrintState();
+            //        //PrintPPUData();
+            //        PrintPPUInfo();
+            //        PrintPatternTables();
+            //        PrintNameTables();
+            //    }
+            //    catch (NoGraphicsException)
+            //    {
+            //        // Display was closed.
+            //    }
+            //}
         }
 
         private void PrintPatternTables()
         {
-            if (_drawPatternTables)
+            for (byte p = 0; p <= 0x01; p++)
             {
-                for (byte p = 0; p <= 0x01; p++)
+                for (byte x = 0; x <= 0x0F; x++)
                 {
-                    for (byte x = 0; x <= 0x0F; x++)
+                    for (byte y = 0; y <= 0x0F; y++)
                     {
-                        for (byte y = 0; y <= 0x0F; y++)
-                        {
-                            //Draw(x + p * 16, y, _ppu.PrintPattern(p, (byte)((x << 4) + y)), "Pattern Table");
-                        }
+                        DrawSprite(256 + x * 8, y * 8 + p * 128, _ppu.PrintPattern(p, (byte)((x << 4) + y)), 1, (byte)Sprite.Flip.NONE);
                     }
                 }
             }
@@ -298,7 +266,7 @@ namespace TestPGE.Nes
         {
             if (_drawNameTables)
             {
-                SimpleTexture nameTable = new SimpleTexture(64 * 8, 60 * 8);
+                Sprite nameTable = new Sprite(64 * 8, 60 * 8);
 
                 for (byte py = 0; py <= 0x01; py++)
                 {
@@ -308,7 +276,7 @@ namespace TestPGE.Nes
                         {
                             for (byte x = 0; x < 32; x++)
                             {
-                                SimpleTexture tileTexture = _ppu.PrintTile((byte)(py * 2 + px), x, y);
+                                Sprite tileTexture = _ppu.PrintTile((byte)(py * 2 + px), x, y);
                                 //nameTable.Combine(x * 8 + 32 * px, y * 8 + 30 * py, tileTexture);
                                 
                                 //Draw(x * 8 + 32 * px * 8, y * 8 + 30 * py * 8, tileTexture, "Name Table");
@@ -446,7 +414,7 @@ namespace TestPGE.Nes
             dumpLines[7] += String.Format("  Stack P: ${0:X2}", _cpu.StackPointer);
             dumpLines[8] += String.Format("  PC:      ${0:X4}", _cpu.ProgramCounter);
 
-            dumpLines[12] += String.Format("  Master Freq: {0}", _masterFps);
+            //dumpLines[12] += String.Format("  Master Freq: {0}", _masterFps);
             dumpLines[13] += String.Format("  Dots:        {0}", _ppu.RemainingDotsInFrame);
 
             Console.WriteLine();

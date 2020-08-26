@@ -5,11 +5,8 @@
 /// </summary>
 namespace TestPGE
 {
-    public abstract partial class GameEngine
+    public class NoGraphicsException : Exception
     {
-        public class NoGraphicsException : Exception
-        {
 
-        }
     }
 }

@@ -1,28 +1,27 @@
-﻿using System;
+using CorePixelEngine;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-//using System.Windows.Forms;
+using System.Windows.Forms;
 using TestPGE.Nes;
 
-namespace TestPGE
+namespace emulatorPGE
 {
     static class Program
     {
-        private static Core td;
-
         /// <summary>
-        /// The main entry point for the application.
+        ///  The main entry point for the application.
         /// </summary>
         [STAThread]
         static void Main()
         {
-            //Application.EnableVisualStyles();
-            //Application.SetCompatibleTextRenderingDefault(false);
-            td = new Core(256, 240, 3, 3);
-            td.Run();
-            
-            //Application.Run();
+            Core core = new Core();
+
+            if (core.Construct(256 + 128, 256, 2, 2, false, false) != RCode.FAIL)
+            {
+                core.Start();
+            }
         }
     }
 }

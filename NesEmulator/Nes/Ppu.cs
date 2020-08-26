@@ -1,7 +1,6 @@
 ﻿using _6502Cpu;
 using Common.Bus;
-using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
+using CorePixelEngine;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -155,7 +154,7 @@ namespace TestPGE.Nes
         private bool _writeLatch = false;
         private UInt16 _tempRegister = 0x00;
 
-        private SimpleTexture _backgroundTexture = new SimpleTexture(256, 240);
+        private Sprite _backgroundTexture = new Sprite(256, 240);
 
         public bool BackgroundRenderEnabled => (_registers[PPU_MASK_REGISTER] & BACKGROUD_RENDER_BIT) == BACKGROUD_RENDER_BIT;
         public bool SpriteRenderEnabled => (_registers[PPU_MASK_REGISTER] & SPRITE_RENDER_BIT) == SPRITE_RENDER_BIT;
@@ -182,7 +181,7 @@ namespace TestPGE.Nes
             _cpu = cpu;
         }
 
-        private Color[] _currentScanlineBG = new Color[8];
+        private Pixel[] _currentScanlineBG = new Pixel[8];
 
         private UInt16 _lowBgPatternValueShiftRegister = 0x0000;
         private UInt16 _highBgPatternValueShiftRegister = 0x0000;
@@ -357,9 +356,9 @@ namespace TestPGE.Nes
                 //    EmphasiseGreen ? EMPHASIS_AMT : 0, 
                 //    EmphasiseBlue ? EMPHASIS_AMT : 0);
 
-                Color pixelColor = BaseColors.Palette[Bus.Read(paletteAddress)];
+                Pixel pixelColor = BasePixels.Palette[Bus.Read(paletteAddress)];
 
-                _backgroundTexture.Data[_bgDataIndex] = pixelColor;
+                _backgroundTexture.SetPixel(_bgDataIndex % 256, (int)Math.Floor((float)_bgDataIndex / 256.0f), pixelColor);
                 _bgDataIndex++;
 
                 _highBgPatternValueShiftRegister = (UInt16)(_highBgPatternValueShiftRegister << 1);
@@ -666,16 +665,16 @@ namespace TestPGE.Nes
             _ppuAddress &= 0x3FFF;
         }
 
-        public SimpleTexture RenderBackground()
+        public Sprite RenderBackground()
         {
             return _backgroundTexture;
         }
 
-        private static Color[] _plainPalette = new Color[] { Color.White, Color.LightGray, Color.Gray, Color.Black };
+        private static Pixel[] _plainPalette = new Pixel[] { Pixel.WHITE, Pixel.GREY, Pixel.DARK_GREY, Pixel.BLACK };
 
-        public SimpleTexture PrintPattern(byte tableNumber, byte sprite, byte? palette = null)
+        public Sprite PrintPattern(byte tableNumber, byte sprite, byte? palette = null)
         {
-            SimpleTexture patternTexture = new SimpleTexture(8, 8);
+            Sprite patternTexture = new Sprite(8, 8);
             
             if (tableNumber <= 0x01)
             {
@@ -692,10 +691,10 @@ namespace TestPGE.Nes
                         // Shift index by which pixel we are interested in, then mask it by 1 to get bit 0. MSB get shifted 1 and or'd with LSB.
                         byte colorIndex = (byte)(((colorIndexMsb >> pixelX - 1) & 0x02) | ((colorIndexLsb >> pixelX) & 0x01));
                         
-                        patternTexture.Data[pixelY * 8 + (7 - pixelX)] =
+                        patternTexture.SetPixel(pixelX, pixelY, 
                             palette.HasValue 
-                                ? BaseColors.Palette[Bus.Read((UInt16)(0x3F00 + palette.Value * 4 + colorIndex)) & 0x3F]
-                                : _plainPalette[colorIndex];
+                                ? BasePixels.Palette[Bus.Read((UInt16)(0x3F00 + palette.Value * 4 + colorIndex)) & 0x3F]
+                                : _plainPalette[colorIndex]);
                     }
                 }
             }
@@ -703,9 +702,9 @@ namespace TestPGE.Nes
             return patternTexture;
         }
 
-        public SimpleTexture PrintTile(byte nameTable, byte xTile, byte yTile)
+        public Sprite PrintTile(byte nameTable, byte xTile, byte yTile)
         {
-            SimpleTexture patternTexture = new SimpleTexture(8, 8);
+            Sprite patternTexture = new Sprite(8, 8);
             byte patternTable = (byte)((_registers[PPU_MASK_REGISTER] & 0x10) >> 4);
             UInt16 nametableAddress = (UInt16)(yTile * 32 + xTile + nameTable * 0x400 + 0x2000);
             byte sprite = Bus.Read(nametableAddress);
@@ -723,7 +722,7 @@ namespace TestPGE.Nes
                     // Shift index by which pixel we are interested in, then mask it by 1 to get bit 0. MSB get shifted 1 and or'd with LSB.
                     byte colorIndex = (byte)(((colorIndexMsb >> pixelX - 1) & 0x02) | ((colorIndexLsb >> pixelX) & 0x01));
 
-                    patternTexture.Data[pixelY * 8 + (7 - pixelX)] = _plainPalette[colorIndex];
+                    patternTexture.SetPixel(pixelX, pixelY, _plainPalette[colorIndex]);
                 }
             }
         

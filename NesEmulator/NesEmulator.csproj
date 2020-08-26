@@ -1,24 +1,23 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
-    <Platforms>x64;x86</Platforms>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Version>0.1.0</Version>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CorePixelEngine.Core" Version="0.1.0" />
+    <PackageReference Include="CorePixelEngine.OpenGL.net" Version="0.1.0" />
+    <PackageReference Include="CorePixelEngine.Windows" Version="0.1.0" />
+    <PackageReference Include="OpenGL.Net" Version="0.8.4" />
+  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\6502Cpu\6502Cpu.csproj" />
     <ProjectReference Include="..\Common\Common.csproj" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="MonoGame.Framework">
-      <HintPath>lib\MonoGame.Framework.dll</HintPath>
-    </Reference>
-  </ItemGroup>
-
-  <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
-    <Exec Command="copy &quot;$(ProjectDir)runtimes\win-x64\native\*&quot; $(OutDir)" />
-  </Target>
 
 </Project>
